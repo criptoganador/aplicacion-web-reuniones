@@ -39,18 +39,27 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir peticiones sin origen (como apps móviles o curl)
-    if (!origin) return callback(null, true);
+    // En producción, imprimimos logs para depurar si falla
+    if (process.env.NODE_ENV === "production") {
+      console.log(
+        `🔍 CORS: Origin=${origin} | Allowed=${JSON.stringify(allowedOrigins)}`,
+      );
+    }
+
     if (
+      !origin ||
       allowedOrigins.indexOf(origin) !== -1 ||
       process.env.NODE_ENV !== "production"
     ) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      console.warn(`❌ CORS bloqueado para: ${origin}`);
+      // En lugar de error, devolvemos false para que la librería maneje el rechazo limpiamente
+      callback(null, false);
     }
   },
   credentials: true,
+  optionsSuccessStatus: 200,
 };
 
 // --- ESQUEMAS DE VALIDACIÓN ---
@@ -97,59 +106,13 @@ const app = express();
 
 // ---------------------------
 // Configuración Neon (SEGURA)
-// ---------------------------
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
-});
+import { pool, initDB } from "./db.js";
 
-// 🔥 Audit Fix: Database connection verification and error listener
-console.log("🛠️ Configurando Pool de Base de Datos...");
-pool.on("error", (err) => {
-  console.error("❌ Error inesperado en el cliente de DB", err);
-});
-
-const initDB = async () => {
-  console.log("🔍 Intentando conectar a la Base de Datos...");
-  try {
-    const client = await pool.connect();
-    console.log("✅ Base de Datos inicializada correctamente.");
-    client.release();
-  } catch (err) {
-    console.error(
-      "❌ Error fatal al conectar con la Base de Datos:",
-      err.message,
-    );
-  }
-};
+// Llamar a la inicialización
 initDB();
 
-// --- INICIO DEL SERVIDOR ---
+// Usamos el puerto del .env o el que asigne Render
 const PORT = Number(process.env.PORT) || 10000;
-console.log(`📡 Intentando arrancar servidor en puerto: ${PORT}`);
-
-const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 SERVIDOR ESCUCHANDO EN PUERTO: ${PORT}`);
-  console.log(`🌍 MODO: ${process.env.NODE_ENV || "desarrollo"}`);
-});
-
-server.on("error", (err) => {
-  console.error(`❌ ERROR AL ARRANCAR EL SERVIDOR: ${err.message}`);
-  if (err.code === "EADDRINUSE") {
-    console.error(`⚠️ El puerto ${PORT} ya está en uso.`);
-  }
-});
-
-process.on("uncaughtException", (err) => {
-  console.error("❌ EXCEPCIÓN NO CAPTURADA:", err);
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("❌ PROMESA NO MANEJADA:", reason);
-});
 
 // ---------------------------
 // Configuración Nodemailer (Email)
@@ -2029,8 +1992,26 @@ setInterval(async () => {
   }
 }, cleanupInterval);
 
-// El servidor ya arrancó al principio del archivo
-console.log("🏁 Bloque final del archivo alcanzado.");
+// --- ARRANQUE FINAL DEL SERVIDOR ---
+console.log(`📡 Intentando arrancar servidor en puerto: ${PORT}`);
+
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 SERVIDOR ESCUCHANDO EN PUERTO: ${PORT}`);
+  console.log(`🌍 MODO: ${process.env.NODE_ENV || "production"}`);
+  console.log(`🏁 Archivo server.js cargado totalmente.`);
+});
+
+server.on("error", (err) => {
+  console.error(`❌ ERROR AL ARRANCAR EL SERVIDOR: ${err.message}`);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("❌ EXCEPCIÓN NO CAPTURADA:", err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ PROMESA NO MANEJADA:", reason);
+});
 
 // Exportar para Firebase Functions
 export default app;

@@ -1,5 +1,5 @@
 import { verifyAccessToken } from "../utils/jwt.js";
-import { pool } from "../server.js";
+import { pool } from "../db.js";
 
 /**
  * Middleware para verificar que el usuario está autenticado
