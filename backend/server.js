@@ -46,7 +46,8 @@ const allowedOrigins = [
   "http://localhost:5173",
   "https://video-confrerncia.web.app",
   "https://video-confrerncia.firebaseapp.com",
-];
+  process.env.FRONTEND_URL, // ✨ Render Frontend URL
+].filter(Boolean); // Eliminar valores nulos/undefined
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -105,7 +106,7 @@ const { Pool } = pg;
 const app = express();
 
 // Usamos el puerto del .env o el 4000 por defecto
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 10000;
 
 // ---------------------------
 // Configuración Neon (SEGURA)
