@@ -19,6 +19,7 @@
     "@livekit/components-react": "^2.9.19",
     "@livekit/components-styles": "^1.2.0",
     "body-parser": "^2.2.2",
+    "cloudinary": "^2.9.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dompurify": "^3.3.1",

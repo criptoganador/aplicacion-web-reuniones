@@ -13,6 +13,7 @@ import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import crypto from "crypto";
+import { v2 as cloudinary } from "cloudinary";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -22,6 +23,13 @@ import { authenticateToken, isAdmin } from "./middleware/auth.js";
 import Joi from "joi";
 
 dotenv.config();
+
+// Configuración de Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // Configuración de CORS dinámica
 const allowedOrigins = [
@@ -317,21 +325,37 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        "default-src": ["'self'"],
+        "script-src": [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://*.livekit.cloud",
+        ],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+        ],
+        "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
         "img-src": [
           "'self'",
           "data:",
           "blob:",
           "http://localhost:4000",
           "https://*.livekit.cloud",
+          "https://raw.githubusercontent.com",
+          "https://res.cloudinary.com",
         ],
         "connect-src": [
           "'self'",
           "http://localhost:4000",
+          "http://127.0.0.1:4000",
           "wss://*.livekit.cloud",
           "https://*.livekit.cloud",
         ],
         "frame-src": ["'self'", "https://*.livekit.cloud"],
+        "media-src": ["'self'", "blob:", "data:"],
       },
     },
   }),
@@ -370,29 +394,37 @@ app.use(
 
 // ENDPOINT DE SUBIDA (Híbrido: Firebase o Local)
 app.post("/upload", upload.single("file"), async (req, res) => {
-  console.log("📂 Upload endpoint hit! Mode: Local Storage");
+  console.log("📂 Upload endpoint hit! Mode: Cloudinary");
 
   if (!req.file) {
     return res.status(400).json({ error: "No se envió ningún archivo" });
   }
 
   const { meeting_id } = req.body;
-  // 🔥 Audit Fix: Sanitizar nombres de archivo para evitar errores 404 con espacios
-  const sanitizedOriginalName = req.file.originalname.replace(/\s+/g, "_");
-  const fileName = `${Date.now()}-${sanitizedOriginalName}`;
 
   try {
-    // Guardar archivo en disco
-    const localFilePath = path.join(uploadDir, fileName);
-    fs.writeFileSync(localFilePath, req.file.buffer);
+    // 🔥 Audit Fix: Subida directa a Cloudinary desde memoria
+    const uploadToCloudinary = () => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "asicme_meet_uploads",
+            resource_type: "auto",
+            public_id: `${Date.now()}-${req.file.originalname.replace(/\.[^/.]+$/, "").replace(/\s+/g, "_")}`,
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          },
+        );
+        stream.end(req.file.buffer);
+      });
+    };
 
-    // Generar URL local
-    const protocol = req.protocol;
-    const host = req.get("host");
-    // 🔥 Audit Fix: Codificar la URL para asegurar compatibilidad con navegadores
-    const publicUrl = `${protocol}://${host}/uploads/${encodeURIComponent(fileName)}`;
+    const result = await uploadToCloudinary();
+    const publicUrl = result.secure_url;
 
-    console.log("✅ File saved Locally:", publicUrl);
+    console.log("✅ File uploaded to Cloudinary:", publicUrl);
 
     if (meeting_id) {
       await saveFileReference(meeting_id, publicUrl, req.file.originalname);
@@ -401,13 +433,10 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     res.json({
       secure_url: publicUrl,
       name: req.file.originalname,
-      filename: fileName,
     });
-  } catch (err) {
-    console.error("❌ Error saving file locally:", err);
-    res
-      .status(500)
-      .json({ error: "No se pudo guardar el archivo localmente." });
+  } catch (error) {
+    console.error("❌ Error uploading to Cloudinary:", error);
+    res.status(500).json({ error: "No se pudo subir el archivo a la nube." });
   }
 });
 

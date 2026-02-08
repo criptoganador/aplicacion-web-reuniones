@@ -5,6 +5,7 @@ import { ThemeProvider } from './context';
 import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
+import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import './App.css';
 
 import TitleBar from './components/TitleBar/TitleBar';
@@ -37,7 +38,8 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <ErrorBoundary>
+          <BrowserRouter>
           <div className="app">
             <WindowResizerSimple />
             <TitleBar />
@@ -86,7 +88,8 @@ function App() {
             </div>
           </div>
         </BrowserRouter>
-      </AuthProvider>
+      </ErrorBoundary>
+    </AuthProvider>
     </ThemeProvider>
   );
 }
