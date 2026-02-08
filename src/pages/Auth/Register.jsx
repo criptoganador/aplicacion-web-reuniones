@@ -117,11 +117,13 @@ function Register() {
                     <Lock size={20} />
                     <input
                       id="joinCode"
+                      name="joinCode"
                       type="text"
                       placeholder="Ej: ASICME-X123"
                       value={joinCode}
                       onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                       required={role === 'user'}
+                      autoComplete="off"
                     />
                   </div>
                   <p className="input-hint">Solicita este código al administrador de tu organización.</p>
@@ -135,11 +137,13 @@ function Register() {
                     <Video size={20} />
                     <input
                       id="orgName"
+                      name="organizationName"
                       type="text"
                       placeholder="Ej: Innova Corp"
                       value={orgName}
                       onChange={(e) => setOrgName(e.target.value)}
                       required={role === 'admin'}
+                      autoComplete="organization"
                     />
                   </div>
                 </div>
@@ -151,11 +155,13 @@ function Register() {
                   <User size={20} />
                   <input
                     id="name"
+                    name="fullName"
                     type="text"
                     placeholder="Tu nombre completo"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
+                    autoComplete="name"
                   />
                 </div>
               </div>
@@ -166,11 +172,13 @@ function Register() {
                   <Mail size={20} />
                   <input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="ejemplo@asicme.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
                   />
                 </div>
               </div>
@@ -181,11 +189,13 @@ function Register() {
                   <Lock size={20} />
                   <input
                     id="password"
+                    name="password"
                     type="password"
                     placeholder="Mínimo 8 caracteres"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    autoComplete="new-password"
                   />
                 </div>
               </div>

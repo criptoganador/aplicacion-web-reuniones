@@ -8,7 +8,7 @@ import Button from '../../components/Button';
 import MeshGradient from '../../components/MeshGradient/MeshGradient';
 import './Home.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { getApiUrl } from '../../context/AuthContext';
 
 function Home() {
   const navigate = useNavigate();
@@ -310,8 +310,11 @@ function Home() {
                 
                 <div className="home-join-meeting">
                   <div className="home-input-wrapper">
+                    <label htmlFor="join-meeting-input" className="sr-only">Introduce un código o enlace de reunión</label>
                     <Keyboard size={20} className="home-input-icon" />
                     <input
+                      id="join-meeting-input"
+                      name="meetingCode"
                       type="text"
                       className="home-input"
                       placeholder="Introduce un código o enlace"
@@ -539,8 +542,10 @@ function Home() {
             </div>
             <form onSubmit={crearProgramada}>
               <div className="form-group">
-                <label className="form-label">Nombre de la reunión</label>
+                <label htmlFor="schedule-title" className="form-label">Nombre de la reunión</label>
                 <input 
+                  id="schedule-title"
+                  name="meetingTitle"
                   type="text" 
                   className="home-input schedule-input" 
                   placeholder="Ej: Reunión sobre alimentación"
@@ -551,8 +556,10 @@ function Home() {
               </div>
 
               <div className="form-group" style={{ marginTop: '16px' }}>
-                <label className="form-label">Organizado por</label>
+                <label htmlFor="schedule-organizer" className="form-label">Organizado por</label>
                 <input 
+                  id="schedule-organizer"
+                  name="organizedBy"
                   type="text" 
                   className="home-input schedule-input" 
                   placeholder="Ej: Jhoan Gavidia"
@@ -563,8 +570,10 @@ function Home() {
               </div>
 
               <div className="form-group" style={{ marginTop: '16px' }}>
-                <label className="form-label">Fecha y Hora</label>
+                <label htmlFor="schedule-date" className="form-label">Fecha y Hora</label>
                 <input 
+                  id="schedule-date"
+                  name="scheduledDate"
                   type="datetime-local" 
                   className="home-input schedule-input"
                   value={scheduledDate}

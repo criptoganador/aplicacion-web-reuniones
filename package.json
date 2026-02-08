@@ -11,7 +11,6 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-
     "electron": "electron .",
     "electron:dev": "npx concurrently \"npm run dev\" \"npx wait-on http://localhost:5173 && npx cross-env ELECTRON_START_URL=http://localhost:5173 npm run electron\"",
     "package": "npm run build && npx electron-builder"
@@ -22,6 +21,7 @@
     "body-parser": "^2.2.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "dompurify": "^3.3.1",
     "dotenv": "^17.2.3",
     "emoji-picker-react": "^4.17.4",
     "express": "^5.2.1",
@@ -50,6 +50,7 @@
     "bcrypt": "^6.0.0",
     "concurrently": "^9.2.1",
     "electron": "^40.2.1",
+    "electron-builder": "^26.7.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -66,10 +67,15 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "backend/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "backend/**/*"
+    ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.png"
     }
   }
 }

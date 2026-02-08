@@ -11,6 +11,7 @@ import multer from "multer"; // Import multer
 import bcrypt from "bcrypt";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import crypto from "crypto";
 import {
   generateAccessToken,
@@ -19,33 +20,12 @@ import {
 } from "./utils/jwt.js";
 import { authenticateToken, isAdmin } from "./middleware/auth.js";
 import Joi from "joi";
-import admin from "firebase-admin";
-
-// --- INICIALIZACIÓN FIREBASE ADMIN (Opcional) ---
-let bucket;
-try {
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      storageBucket: "video-confrerncia.appspot.com",
-    });
-  }
-  bucket = admin.storage().bucket();
-  console.log("✅ Firebase Admin inicializado correctamente.");
-} catch (error) {
-  console.warn(
-    "⚠️ No se pudo inicializar Firebase Admin. Se usará almacenamiento local para subidas.",
-  );
-  bucket = null;
-}
 
 dotenv.config();
 
 // Configuración de CORS dinámica
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://video-confrerncia.web.app",
-  "https://video-confrerncia.firebaseapp.com",
   process.env.FRONTEND_URL, // ✨ Render Frontend URL
 ].filter(Boolean); // Eliminar valores nulos/undefined
 
@@ -116,6 +96,26 @@ export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// 🔥 Audit Fix: Database connection verification and error listener
+pool.on("error", (err) => {
+  console.error("❌ Unexpected error on idle client", err);
+  process.exit(-1);
+});
+
+const initDB = async () => {
+  try {
+    const client = await pool.connect();
+    console.log("✅ Base de Datos inicializada correctamente.");
+    client.release();
+  } catch (err) {
+    console.error(
+      "❌ Error fatal al conectar con la Base de Datos:",
+      err.message,
+    );
+  }
+};
+initDB();
+
 // ---------------------------
 // Configuración Nodemailer (Email)
 // ---------------------------
@@ -126,6 +126,44 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
+  },
+});
+
+// ---------------------------
+// Rate Limiters (Security)
+// ---------------------------
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // 5 intentos por ventana
+  message: {
+    error: "Demasiados intentos de login. Intenta de nuevo en 15 minutos.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3, // 3 registros por hora desde la misma IP
+  message: {
+    error: "Demasiados intentos de registro. Intenta de nuevo más tarde.",
+  },
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3, // 3 solicitudes por hora
+  message: {
+    error:
+      "Demasiadas solicitudes de recuperación. Intenta de nuevo más tarde.",
+  },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 20, // 20 archivos por ventana
+  message: {
+    error: "Demasiadas subidas de archivos. Intenta de nuevo más tarde.",
   },
 });
 
@@ -273,6 +311,31 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        "img-src": [
+          "'self'",
+          "data:",
+          "blob:",
+          "http://localhost:4000",
+          "https://*.livekit.cloud",
+        ],
+        "connect-src": [
+          "'self'",
+          "http://localhost:4000",
+          "wss://*.livekit.cloud",
+          "https://*.livekit.cloud",
+        ],
+        "frame-src": ["'self'", "https://*.livekit.cloud"],
+      },
+    },
+  }),
+);
 
 // LOGGING MIDDLEWARE (Debug)
 app.use((req, res, next) => {
@@ -295,96 +358,56 @@ const upload = multer({
 });
 
 // Servir la carpeta 'uploads'
-app.use("/uploads", express.static(uploadDir));
+console.log(`📂 Serving static files from: ${uploadDir}`);
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    console.log(`📸 Static request: ${req.url}`);
+    next();
+  },
+  express.static(uploadDir),
+);
 
 // ENDPOINT DE SUBIDA (Híbrido: Firebase o Local)
 app.post("/upload", upload.single("file"), async (req, res) => {
-  console.log(`📂 Upload endpoint hit! Mode: ${bucket ? "Firebase" : "Local"}`);
+  console.log("📂 Upload endpoint hit! Mode: Local Storage");
 
   if (!req.file) {
     return res.status(400).json({ error: "No se envió ningún archivo" });
   }
 
   const { meeting_id } = req.body;
-  const fileName = `${Date.now()}-${req.file.originalname}`;
+  // 🔥 Audit Fix: Sanitizar nombres de archivo para evitar errores 404 con espacios
+  const sanitizedOriginalName = req.file.originalname.replace(/\s+/g, "_");
+  const fileName = `${Date.now()}-${sanitizedOriginalName}`;
 
-  // --- MODO FIREBASE ---
-  if (bucket) {
-    const file = bucket.file(fileName);
-    try {
-      const blobStream = file.createWriteStream({
-        metadata: { contentType: req.file.mimetype },
-      });
+  try {
+    // Guardar archivo en disco
+    const localFilePath = path.join(uploadDir, fileName);
+    fs.writeFileSync(localFilePath, req.file.buffer);
 
-      blobStream.on("error", (err) => {
-        console.error("❌ Error uploading to Storage:", err);
-        if (!res.headersSent)
-          res.status(500).json({ error: "Error al subir a la nube" });
-      });
+    // Generar URL local
+    const protocol = req.protocol;
+    const host = req.get("host");
+    // 🔥 Audit Fix: Codificar la URL para asegurar compatibilidad con navegadores
+    const publicUrl = `${protocol}://${host}/uploads/${encodeURIComponent(fileName)}`;
 
-      blobStream.on("finish", async () => {
-        try {
-          await file.makePublic();
-          const publicUrl = `https://storage.googleapis.com/${bucket.name}/${file.name}`;
-          console.log("✅ File saved to Cloud:", publicUrl);
+    console.log("✅ File saved Locally:", publicUrl);
 
-          if (meeting_id) {
-            await saveFileReference(
-              meeting_id,
-              publicUrl,
-              req.file.originalname,
-            );
-          }
-
-          res.json({
-            secure_url: publicUrl,
-            name: req.file.originalname,
-            filename: fileName,
-          });
-        } catch (innerErr) {
-          console.error("❌ Error completing upload:", innerErr);
-          if (!res.headersSent)
-            res.status(500).json({ error: "Fallo al procesar archivo" });
-        }
-      });
-
-      blobStream.end(req.file.buffer);
-    } catch (err) {
-      console.error("❌ Error general en upload:", err);
-      if (!res.headersSent)
-        res.status(500).json({ error: "Fallo crítico en subida" });
+    if (meeting_id) {
+      await saveFileReference(meeting_id, publicUrl, req.file.originalname);
     }
-  }
-  // --- MODO LOCAL ---
-  else {
-    try {
-      // Guardar archivo en disco
-      const localFilePath = path.join(uploadDir, fileName);
-      fs.writeFileSync(localFilePath, req.file.buffer);
 
-      // Generar URL local
-      // Asegurar que FRONTEND pueda acceder a esta URL (servida estáticamente)
-      const protocol = req.protocol;
-      const host = req.get("host");
-      const publicUrl = `${protocol}://${host}/uploads/${fileName}`;
-
-      console.log("✅ File saved Locally:", publicUrl);
-
-      if (meeting_id) {
-        await saveFileReference(meeting_id, publicUrl, req.file.originalname);
-      }
-
-      res.json({
-        secure_url: publicUrl,
-        name: req.file.originalname,
-        filename: fileName,
-      });
-    } catch (err) {
-      console.error("❌ Error saving file locally:", err);
-      res
-        .status(500)
-        .json({ error: "No se pudo guardar el archivo localmente." });
-    }
+    res.json({
+      secure_url: publicUrl,
+      name: req.file.originalname,
+      filename: fileName,
+    });
+  } catch (err) {
+    console.error("❌ Error saving file locally:", err);
+    res
+      .status(500)
+      .json({ error: "No se pudo guardar el archivo localmente." });
   }
 });
 
@@ -637,7 +660,7 @@ app.post("/meetings/join", async (req, res) => {
 // ===========================
 
 // 🔹 Registro CON BCRYPT Y JWT
-app.post("/auth/register", async (req, res) => {
+app.post("/auth/register", registerLimiter, async (req, res) => {
   try {
     // 1. Validar con Joi
     const { error, value } = registerSchema.validate(req.body);
@@ -891,10 +914,10 @@ app.post("/auth/resend-verification", async (req, res) => {
       user.id,
     ]);
 
-    // 3. Log en consola
-    console.log("------------------------------------------");
-    console.log(`🔄 NUEVO CÓDIGO REENVIADO PARA ${email}: [ ${newOTP} ]`);
-    console.log("------------------------------------------");
+    // 3. Log en consola (sin datos sensibles)
+    if (process.env.NODE_ENV === "development") {
+      console.log(`🔄 Código de verificación reenviado para: ${email}`);
+    }
 
     // 4. Intentar enviar email
     try {
@@ -923,7 +946,7 @@ app.post("/auth/resend-verification", async (req, res) => {
 });
 
 // 🔹 Login CON BCRYPT Y JWT
-app.post("/auth/login", async (req, res) => {
+app.post("/auth/login", loginLimiter, async (req, res) => {
   try {
     // 1. Validar con Joi
     const { error, value } = loginSchema.validate(req.body);
@@ -1188,7 +1211,7 @@ app.get("/meetings/history", authenticateToken, async (req, res) => {
 });
 
 // 🔹 Solicitar recuperación de contraseña
-app.post("/auth/forgot-password", async (req, res) => {
+app.post("/auth/forgot-password", forgotPasswordLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {

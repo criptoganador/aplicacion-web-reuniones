@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Video, Mail, Lock, LogIn, ArrowRight, AlertCircle } from 'lucide-react';
+import { Video, Mail, Lock, LogIn, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import './Auth.css';
@@ -13,6 +13,8 @@ function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,11 +36,21 @@ function Login() {
     <div className="auth-container">
       <MeshGradient />
       
-      <div className="auth-content animate-fade-in">
-        <div className="auth-card glass-panel">
+      {/* Animated Background Orbs */}
+      <div className="auth-bg-orbs">
+        <div className="orb orb-1"></div>
+        <div className="orb orb-2"></div>
+        <div className="orb orb-3"></div>
+      </div>
+      
+      <div className="auth-content animate-fade-in-up">
+        <div className="auth-card glass-panel-enhanced">
+          {/* Decorative glow */}
+          <div className="card-glow"></div>
+          
           <div className="auth-header">
             <div className="auth-logo">
-              <div className="logo-background">
+              <div className="logo-background pulse-glow">
                 <Video size={32} className="logo-icon" />
               </div>
               <h1>ASICME <span>Meet</span></h1>
@@ -54,33 +66,50 @@ function Login() {
           )}
 
           <form className="auth-form" onSubmit={handleSubmit}>
-            <div className="input-group">
-              <label htmlFor="email">Correo corporativo</label>
-              <div className="input-field glass-input">
-                <Mail size={20} />
+            {/* Email Field with Floating Label */}
+            <div className={`input-group floating ${email || focusedField === 'email' ? 'has-value' : ''}`}>
+              <div className={`input-field glass-input ${focusedField === 'email' ? 'focused' : ''}`}>
+                <Mail size={20} className="input-icon" />
                 <input
                   id="email"
+                  name="email"
                   type="email"
-                  placeholder="nombre@empresa.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
                   required
+                  autoComplete="email"
                 />
+                <label htmlFor="email" className="floating-label">Correo corporativo</label>
               </div>
             </div>
 
-            <div className="input-group">
-              <label htmlFor="password">Contraseña</label>
-              <div className="input-field glass-input">
-                <Lock size={20} />
+            {/* Password Field with Floating Label and Toggle */}
+            <div className={`input-group floating ${password || focusedField === 'password' ? 'has-value' : ''}`}>
+              <div className={`input-field glass-input ${focusedField === 'password' ? 'focused' : ''}`}>
+                <Lock size={20} className="input-icon" />
                 <input
                   id="password"
-                  type="password"
-                  placeholder="Ingrese contraseña"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
                   required
+                  autoComplete="current-password"
                 />
+                <label htmlFor="password" className="floating-label">Contraseña</label>
+                <button 
+                  type="button" 
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               <div className="forgot-password-link">
                 <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
@@ -94,9 +123,14 @@ function Login() {
               type="submit" 
               icon={LogIn}
               disabled={isLoading}
-              className="login-btn"
+              className={`login-btn ${isLoading ? 'loading' : ''}`}
             >
-              {isLoading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+              {isLoading ? (
+                <span className="btn-loading">
+                  <span className="spinner-small"></span>
+                  Iniciando sesión...
+                </span>
+              ) : 'Iniciar sesión'}
             </Button>
           </form>
 

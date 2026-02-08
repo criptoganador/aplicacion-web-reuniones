@@ -5,7 +5,7 @@ import Button from '../../components/Button';
 import { toast } from 'sonner';
 import './Auth.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { getApiUrl } from '../../context/AuthContext';
 
 function VerifyEmail() {
   const { token } = useParams();
@@ -40,7 +40,7 @@ function VerifyEmail() {
 
     setStatus('verifying');
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/verify-email/${code}`);
+      const response = await fetch(`${getApiUrl()}/auth/verify-email/${code}`);
       const data = await response.json();
 
       if (data.success) {
@@ -66,7 +66,7 @@ function VerifyEmail() {
 
     setIsResending(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+      const response = await fetch(`${getApiUrl()}/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailParam }),

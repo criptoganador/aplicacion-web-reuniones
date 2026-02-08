@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import './Auth.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { getApiUrl } from '../../context/AuthContext';
 
 function ResetPassword() {
   const { token } = useParams();
@@ -32,7 +32,7 @@ function ResetPassword() {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      const response = await fetch(`${getApiUrl()}/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

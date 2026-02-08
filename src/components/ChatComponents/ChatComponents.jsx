@@ -53,8 +53,11 @@ export function ChatSearch({ query, setQuery, results, isSearching, onResultClic
   return (
     <div className="chat-search-container">
       <div className="search-input-wrapper">
+        <label htmlFor="chat-search-input" className="sr-only">Buscar en el chat</label>
         <Search size={18} />
         <input 
+          id="chat-search-input"
+          name="chatSearch"
           type="text"
           placeholder="Buscar en el chat..."
           value={query}
@@ -228,7 +231,10 @@ export function EditMessageModal({ message, onSave, onCancel }) {
         </div>
         
         <div className="edit-modal-body">
+          <label htmlFor="edit-message-textarea" className="sr-only">Editar contenido del mensaje</label>
           <textarea 
+            id="edit-message-textarea"
+            name="editedMessage"
             value={editedText}
             onChange={(e) => setEditedText(e.target.value)}
             className="edit-textarea"

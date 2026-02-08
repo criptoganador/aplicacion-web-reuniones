@@ -2,7 +2,28 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 
 const AuthContext = createContext();
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+// ✨ HYBRID MODE: Check if Electron injected a local API URL
+// This is now a function to always get the latest value
+const getApiUrl = () => {
+  // Check Electron-injected URL first (using sync IPC)
+  if (typeof window !== 'undefined' && window.electron) {
+    // Try sync IPC method
+    if (window.electron.getBackendPort) {
+      const port = window.electron.getBackendPort();
+      if (port) return `http://localhost:${port}`;
+    }
+    // Fallback to async method
+    if (window.electron.getLocalApiUrl) {
+      const url = window.electron.getLocalApiUrl();
+      if (url) return url;
+    }
+  }
+  // Fallback to environment variable or default
+  return import.meta.env.VITE_API_URL || 'http://localhost:4000';
+};
+
+// Export getApiUrl function for use in other components
+export { getApiUrl };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -11,7 +32,7 @@ export function AuthProvider({ children }) {
 
   const refreshAccessToken = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const response = await fetch(`${getApiUrl()}/auth/refresh`, {
         method: 'POST',
         credentials: 'include' // ⚠️ Importante para enviar cookies
       });
@@ -19,8 +40,18 @@ export function AuthProvider({ children }) {
       if (response.ok) {
         const data = await response.json();
         if (data.success !== false) {
-          setAccessToken(data.accessToken);
-          setUser(data.user);
+          // 🚀 Optimización: Solo actualizar si hay cambios para evitar re-renders innecesarios
+          if (data.accessToken !== accessToken) {
+            setAccessToken(data.accessToken);
+          }
+          
+          // Comparación simple de usuario para evitar re-render si es idéntico
+          const userStr = JSON.stringify(data.user);
+          const currentUserStr = JSON.stringify(user);
+          if (userStr !== currentUserStr) {
+            setUser(data.user);
+          }
+          
           return true; // Éxito
         }
       }
@@ -38,7 +69,7 @@ export function AuthProvider({ children }) {
    */
   const authFetch = useCallback(async (url, options = {}) => {
     // Si la URL empieza por /, la prefijamos con la base de la API
-    const finalUrl = url.startsWith('/') ? `${API_BASE_URL}${url}` : url;
+    const finalUrl = url.startsWith('/') ? `${getApiUrl()}${url}` : url;
 
     const headers = {
       ...options.headers,
@@ -102,7 +133,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const response = await fetch(`${getApiUrl()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // Para recibir cookies
@@ -125,7 +156,7 @@ export function AuthProvider({ children }) {
 
   const register = async (name, email, password, role = 'user', orgName = '', joinCode = '') => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      const response = await fetch(`${getApiUrl()}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -148,7 +179,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
+      await fetch(`${getApiUrl()}/auth/logout`, {
         method: 'POST',
         credentials: 'include'
       });
@@ -162,7 +193,7 @@ export function AuthProvider({ children }) {
 
   const deleteAccount = async () => {
     try {
-      const response = await authFetch(`${API_BASE_URL}/auth/account`, {
+      const response = await authFetch(`${getApiUrl()}/auth/account`, {
         method: 'DELETE'
       });
 
@@ -183,7 +214,7 @@ export function AuthProvider({ children }) {
 
   const updateProfile = async (profileData) => {
     try {
-      const response = await authFetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await authFetch(`${getApiUrl()}/auth/profile`, {
         method: 'PUT',
         body: JSON.stringify(profileData)
       });
@@ -205,7 +236,7 @@ export function AuthProvider({ children }) {
 
   const changePassword = async (passwordData) => {
     try {
-      const response = await authFetch(`${API_BASE_URL}/auth/change-password`, {
+      const response = await authFetch(`${getApiUrl()}/auth/change-password`, {
         method: 'PUT',
         body: JSON.stringify(passwordData)
       });
@@ -225,7 +256,7 @@ export function AuthProvider({ children }) {
 
   const forgotPassword = async (email) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      const response = await fetch(`${getApiUrl()}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -239,7 +270,7 @@ export function AuthProvider({ children }) {
 
   const resetPassword = async (token, newPassword) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      const response = await fetch(`${getApiUrl()}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, newPassword })

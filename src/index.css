@@ -252,7 +252,7 @@ body {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-primary); /* ✨ Fondo movido aquí */
@@ -349,3 +349,27 @@ ol {
   background-color: var(--color-primary);
   color: var(--text-on-primary);
 }
+
+/* ========== Loading Spinner ========== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* 👓 Accesibilidad: Texto solo para lectores de pantalla */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+

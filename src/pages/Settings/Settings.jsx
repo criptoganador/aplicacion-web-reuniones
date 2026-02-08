@@ -7,7 +7,7 @@ import Header from '../../components/Header';
 import Button from '../../components/Button';
 import './Settings.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { getApiUrl } from '../../context/AuthContext';
 
 function Settings() {
   const navigate = useNavigate();
@@ -72,7 +72,7 @@ function Settings() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch(`${API_BASE_URL}/upload`, {
+      const res = await fetch(`${getApiUrl()}/upload`, {
         method: 'POST',
         body: formData
       });

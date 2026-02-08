@@ -11,7 +11,7 @@ import Header from '../../components/Header';
 import Button from '../../components/Button';
 import './PreLobby.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { getApiUrl } from '../../context/AuthContext';
 
 function PreLobby() {
   const navigate = useNavigate();
@@ -61,7 +61,7 @@ function PreLobby() {
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch(`${API_BASE_URL}/upload`, {
+      const res = await fetch(`${getApiUrl()}/upload`, {
         method: 'POST',
         body: formData
       });
@@ -159,7 +159,7 @@ function PreLobby() {
 
   const validateMeeting = async (id) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/meetings/${id}`);
+      const response = await fetch(`${getApiUrl()}/meetings/${id}`);
       const data = await response.json();
       
       if (data.success) {
@@ -201,7 +201,7 @@ function PreLobby() {
       }
 
       // 1. Registrar entrada en BD
-      const dbResponse = await fetch(`${API_BASE_URL}/meetings/join`, {
+      const dbResponse = await fetch(`${getApiUrl()}/meetings/join`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json' 
@@ -216,7 +216,7 @@ function PreLobby() {
       if (!dbResponse.ok) throw new Error("Error al registrar en la base de datos");
 
       // 2. Obtener Token de LiveKit
-      const tokenResponse = await fetch(`${API_BASE_URL}/meetings/get-token`, {
+      const tokenResponse = await fetch(`${getApiUrl()}/meetings/get-token`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -410,12 +410,14 @@ function PreLobby() {
                 <label htmlFor="name-input">Tu nombre</label>
                 <input
                   id="name-input"
+                  name="fullName"
                   type="text"
                   className="name-input"
                   placeholder="Escribe tu nombre"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={30}
+                  autoComplete="name"
                 />
               </div>
 
@@ -423,11 +425,13 @@ function PreLobby() {
                 <label htmlFor="email-input">Tu correo electrónico</label>
                 <input
                   id="email-input"
+                  name="email"
                   type="email"
                   className="name-input"
                   placeholder="ejemplo@correo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                 />
               </div>
               

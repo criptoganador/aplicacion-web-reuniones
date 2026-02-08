@@ -26,7 +26,7 @@ import EmojiPicker from 'emoji-picker-react';
 import './MeetingRoom.css';
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "wss://miradioip-yposn36u.livekit.cloud";
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+import { getApiUrl } from '../../context/AuthContext';
 
 function MeetingRoom() {
   const navigate = useNavigate();
@@ -112,6 +112,9 @@ function MeetingRoom() {
            toast.error(`Error: ${error.message || 'Error desconocido'}`);
         }}
       >
+        {/* 🔥 Fix: Renderer for remote audio tracks */}
+        <RoomAudioRenderer />
+        
         {!isMeetingEnded ? (
            <MeetingContent 
               meetingId={meetingId} 
@@ -132,11 +135,21 @@ function MeetingRoom() {
   );
 }
 
-const playNotificationSound = () => {
+const playNotificationSound = async () => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
     const ctx = new AudioContext();
+    
+    // 🔥 Fix for AudioContext autoplay policy
+    if (ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch (e) {
+        console.warn("Could not resume AudioContext:", e);
+        return; // Silent fail if not allowed
+      }
+    }
     
     // Creating a more "pop/ding" natural sound instead of a simple beep
     const osc = ctx.createOscillator();
@@ -420,9 +433,26 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
       }
     };
 
+    const handleParticipantDisconnected = (participant) => {
+      // Limpiar manos levantadas
+      setRaisedHands(prev => {
+        const next = { ...prev };
+        delete next[participant.identity];
+        return next;
+      });
+      // Limpiar subtítulos
+      setActiveCaptions(prev => {
+        const next = { ...prev };
+        delete next[participant.identity];
+        return next;
+      });
+    };
+
     room.on('dataReceived', handleData);
+    room.on('participantDisconnected', handleParticipantDisconnected);
     return () => {
       room.off('dataReceived', handleData);
+      room.off('participantDisconnected', handleParticipantDisconnected);
     };
   }, [room, localParticipant]); // Solo 'room' como dependencia, localParticipant se accede directamente
 
@@ -1181,7 +1211,7 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
 
   const htmlToBBCode = (html) => {
     const temp = document.createElement('div');
-    temp.innerHTML = html;
+    temp.innerHTML = DOMPurify.sanitize(html); // Sanitize to prevent XSS
     
     const processNode = (node) => {
       let content = '';
@@ -1336,7 +1366,7 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
     if (meetingId) formData.append('meeting_id', meetingId);
 
     try {
-      const response = await fetch('http://127.0.0.1:4000/upload', {
+      const response = await fetch(`${getApiUrl()}/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -1447,7 +1477,7 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
       const fileUrl = parts[1];
       const urlParts = fileUrl.split('/');
       const internalFilename = urlParts[urlParts.length - 1];
-      const downloadUrl = `http://127.0.0.1:4000/download/${internalFilename}`;
+      const downloadUrl = `${getApiUrl()}/download/${internalFilename}`;
 
       const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(fileName);
 
@@ -1621,7 +1651,10 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
         </div>
         <div className="chat-search-bar" onMouseDown={(e) => e.stopPropagation()}>
           <div className="search-input-wrapper">
+            <label htmlFor="chat-search-input-room" className="sr-only">Buscar mensajes en el chat</label>
             <input 
+              id="chat-search-input-room"
+              name="chatSearch"
               type="text" 
               placeholder="Buscar mensajes..." 
               value={searchTerm} 
@@ -1798,9 +1831,9 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
         
         <div className="chat-functions-toolbar">
           <div className="toolbar-group">
-            <label className={`toolbar-btn ${isUploading ? 'disabled' : ''}`} title="Subir archivo">
+            <label className={`toolbar-btn ${isUploading ? 'disabled' : ''}`} title="Subir archivo" htmlFor="chat-file-input">
               <Paperclip size={18} />
-              <input type="file" style={{ display: 'none' }} onChange={onFileSelect} disabled={isUploading} />
+              <input id="chat-file-input" name="fileUpload" type="file" style={{ display: 'none' }} onChange={onFileSelect} disabled={isUploading} />
             </label>
 
             <button 
@@ -1961,10 +1994,17 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
                     }} />
                   ))}
                   <div className="custom-color-input-container" title="Color personalizado">
-                    <input type="color" value={currentColor} onChange={(e) => {
-                      setCurrentColor(e.target.value);
-                      applyFormat('color', e.target.value);
-                    }} />
+                    <label htmlFor="custom-text-color" className="sr-only">Elegir color de texto personalizado</label>
+                    <input 
+                      id="custom-text-color"
+                      name="textColor"
+                      type="color" 
+                      value={currentColor} 
+                      onChange={(e) => {
+                        setCurrentColor(e.target.value);
+                        applyFormat('color', e.target.value);
+                      }} 
+                    />
                   </div>
                 </div>
               )}
@@ -1995,9 +2035,11 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
 
         <form className="chat-input-form" onSubmit={handleSend}>
           <div 
+            id="chat-message-input"
             ref={inputRef}
             contentEditable={!isUploading}
             className="chat-input-editable"
+            aria-label="Escribe tu mensaje"
             onInput={(e) => {
               setMessage(e.currentTarget.innerText);
               handleTyping();
