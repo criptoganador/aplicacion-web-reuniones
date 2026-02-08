@@ -1,0 +1,71 @@
+.mesh-gradient-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  background-color: #0b141a; /* Dark base matching the app theme */
+  overflow: hidden;
+}
+
+.mesh-blob {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.4;
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+
+.blob-1 {
+  background: radial-gradient(circle, #1a73e8 0%, transparent 70%);
+  top: -10%;
+  left: -10%;
+  animation: move-1 25s infinite alternate ease-in-out;
+}
+
+.blob-2 {
+  background: radial-gradient(circle, #4facfe 0%, transparent 70%);
+  bottom: -10%;
+  right: -5%;
+  animation: move-2 30s infinite alternate ease-in-out;
+}
+
+.blob-3 {
+  background: radial-gradient(circle, #00f2fe 0%, transparent 70%);
+  top: 40%;
+  right: 15%;
+  animation: move-1 22s infinite alternate-reverse ease-in-out;
+}
+
+.blob-4 {
+  background: radial-gradient(circle, #34a853 0%, transparent 70%);
+  bottom: 20%;
+  left: 10%;
+  animation: move-2 28s infinite alternate-reverse ease-in-out;
+}
+
+.mesh-gradient-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(11, 20, 26, 0.4); /* Subtle darkening to ensure text legibility */
+  backdrop-filter: blur(40px);
+}
+
+@keyframes move-1 {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate(15%, 10%) rotate(45deg) scale(1.1); }
+  100% { transform: translate(-5%, 20%) rotate(90deg) scale(0.9); }
+}
+
+@keyframes move-2 {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1.2); }
+  50% { transform: translate(-10%, -15%) rotate(-60deg) scale(1); }
+  100% { transform: translate(10%, -5%) rotate(-120deg) scale(1.1); }
+}

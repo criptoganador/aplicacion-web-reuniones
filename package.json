@@ -1,0 +1,79 @@
+{
+  "name": "mi-proyecto-react",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Video conferencing application for ASICME",
+  "author": "ASICME",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "serve:backend": "npm run serve --prefix functions",
+    "electron": "electron .",
+    "electron:dev": "npx concurrently \"npm run dev\" \"npx wait-on http://localhost:5173 && npx cross-env ELECTRON_START_URL=http://localhost:5173 npm run electron\"",
+    "package": "npm run build && npx electron-builder"
+  },
+  "dependencies": {
+    "@livekit/components-react": "^2.9.19",
+    "@livekit/components-styles": "^1.2.0",
+    "body-parser": "^2.2.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "emoji-picker-react": "^4.17.4",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "firebase": "^12.9.0",
+    "firebase-admin": "^13.6.1",
+    "firebase-functions": "^7.0.5",
+    "joi": "^18.0.2",
+    "jsonwebtoken": "^9.0.3",
+    "livekit-client": "^2.17.0",
+    "livekit-server-sdk": "^2.15.0",
+    "lucide-react": "^0.563.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^8.0.0",
+    "pg": "^8.18.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.13.0",
+    "react-syntax-highlighter": "^16.1.0",
+    "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "bcrypt": "^6.0.0",
+    "concurrently": "^9.2.1",
+    "electron": "^40.2.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "firebase-tools": "^15.5.1",
+    "globals": "^16.5.0",
+    "vite": "^7.2.4",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.asicme.meet",
+    "productName": "ASICME Meet",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}
