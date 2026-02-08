@@ -94,7 +94,6 @@ const { Pool } = pg;
 const app = express();
 
 // Usamos el puerto del .env o el 4000 por defecto
-const PORT = process.env.PORT || 10000;
 
 // ---------------------------
 // Configuración Neon (SEGURA)
@@ -108,12 +107,13 @@ export const pool = new Pool({
 });
 
 // 🔥 Audit Fix: Database connection verification and error listener
+console.log("🛠️ Configurando Pool de Base de Datos...");
 pool.on("error", (err) => {
-  console.error("❌ Unexpected error on idle client", err);
-  process.exit(-1);
+  console.error("❌ Error inesperado en el cliente de DB", err);
 });
 
 const initDB = async () => {
+  console.log("🔍 Intentando conectar a la Base de Datos...");
   try {
     const client = await pool.connect();
     console.log("✅ Base de Datos inicializada correctamente.");
@@ -126,6 +126,30 @@ const initDB = async () => {
   }
 };
 initDB();
+
+// --- INICIO DEL SERVIDOR ---
+const PORT = Number(process.env.PORT) || 10000;
+console.log(`📡 Intentando arrancar servidor en puerto: ${PORT}`);
+
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 SERVIDOR ESCUCHANDO EN PUERTO: ${PORT}`);
+  console.log(`🌍 MODO: ${process.env.NODE_ENV || "desarrollo"}`);
+});
+
+server.on("error", (err) => {
+  console.error(`❌ ERROR AL ARRANCAR EL SERVIDOR: ${err.message}`);
+  if (err.code === "EADDRINUSE") {
+    console.error(`⚠️ El puerto ${PORT} ya está en uso.`);
+  }
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("❌ EXCEPCIÓN NO CAPTURADA:", err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ PROMESA NO MANEJADA:", reason);
+});
 
 // ---------------------------
 // Configuración Nodemailer (Email)
@@ -2005,13 +2029,8 @@ setInterval(async () => {
   }
 }, cleanupInterval);
 
-// Arrancar el servidor
-// En Render/Producción, process.env.PORT es asignado automáticamente
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Servidor arrancado con éxito`);
-  console.log(`🔥 Backend listo en el puerto: ${PORT}`);
-  console.log(`🌍 Entorno: ${process.env.NODE_ENV || "development"}`);
-});
+// El servidor ya arrancó al principio del archivo
+console.log("🏁 Bloque final del archivo alcanzado.");
 
 // Exportar para Firebase Functions
 export default app;
