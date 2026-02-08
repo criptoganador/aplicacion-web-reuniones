@@ -1847,12 +1847,14 @@ setInterval(async () => {
 }, cleanupInterval);
 
 // --- ARRANQUE FINAL DEL SERVIDOR ---
-console.log(`📡 Intentando arrancar servidor en puerto: ${PORT}`);
+console.log(`📡 [BOOT] Intentando arrancar servidor...`);
+console.log(`📡 [BOOT] PORT: ${PORT}`);
+console.log(`📡 [BOOT] NODE_ENV: ${process.env.NODE_ENV}`);
 
 const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 SERVIDOR ESCUCHANDO EN PUERTO: ${PORT}`);
-  console.log(`🌍 MODO: ${process.env.NODE_ENV || "production"}`);
-  console.log(`🏁 Archivo server.js cargado totalmente.`);
+  console.log(`🚀 [SUCCESS] SERVIDOR ESCUCHANDO EN PUERTO: ${PORT}`);
+  console.log(`🌍 [INFO] MODO: ${process.env.NODE_ENV || "production"}`);
+  console.log(`🏁 [INFO] Registro completo.`);
 });
 
 server.on("error", (err) => {

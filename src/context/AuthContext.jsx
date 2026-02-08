@@ -5,21 +5,33 @@ const AuthContext = createContext();
 // ✨ HYBRID MODE: Check if Electron injected a local API URL
 // This is now a function to always get the latest value
 const getApiUrl = () => {
-  // Check Electron-injected URL first (using sync IPC)
+  let url = 'http://localhost:4000'; // Default
+
+  // 1. Electron check
   if (typeof window !== 'undefined' && window.electron) {
-    // Try sync IPC method
     if (window.electron.getBackendPort) {
       const port = window.electron.getBackendPort();
-      if (port) return `http://localhost:${port}`;
+      if (port) url = `http://localhost:${port}`;
+    } else if (window.electron.getLocalApiUrl) {
+      const localUrl = window.electron.getLocalApiUrl();
+      if (localUrl) url = localUrl;
     }
-    // Fallback to async method
-    if (window.electron.getLocalApiUrl) {
-      const url = window.electron.getLocalApiUrl();
-      if (url) return url;
-    }
+  } 
+  // 2. Environment Variable check
+  else if (import.meta.env.VITE_API_URL) {
+    url = import.meta.env.VITE_API_URL;
   }
-  // Fallback to environment variable or default
-  return import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+  // Debug log (only once or when it changes to avoid noise)
+  if (typeof window !== 'undefined' && !window._apiUrlLogged) {
+    console.log(`🌐 [API] Using endpoint: ${url}`);
+    if (url.includes('localhost') && window.location.hostname !== 'localhost') {
+      console.warn('⚠️ [API] Warning: You are in production but targetting localhost!');
+    }
+    window._apiUrlLogged = true;
+  }
+
+  return url;
 };
 
 // Export getApiUrl function for use in other components
