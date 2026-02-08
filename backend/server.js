@@ -100,8 +100,11 @@ const PORT = process.env.PORT || 10000;
 // Configuración Neon (SEGURA)
 // ---------------------------
 export const pool = new Pool({
-  // Ahora lee la URL desde el archivo .env
   connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
 // 🔥 Audit Fix: Database connection verification and error listener
@@ -2002,12 +2005,13 @@ setInterval(async () => {
   }
 }, cleanupInterval);
 
-// Solo arrancar el servidor si estamos en desarrollo local
-if (process.env.NODE_ENV !== "production" && !process.env.FUNCTIONS_EMULATOR) {
-  app.listen(PORT, () => {
-    console.log(`🔥 Backend listo en http://localhost:${PORT}`);
-  });
-}
+// Arrancar el servidor
+// En Render/Producción, process.env.PORT es asignado automáticamente
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Servidor arrancado con éxito`);
+  console.log(`🔥 Backend listo en el puerto: ${PORT}`);
+  console.log(`🌍 Entorno: ${process.env.NODE_ENV || "development"}`);
+});
 
 // Exportar para Firebase Functions
 export default app;
