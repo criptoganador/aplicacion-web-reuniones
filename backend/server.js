@@ -99,19 +99,13 @@ const meetingSchema = Joi.object({
   organized_by: Joi.string().max(50).optional().allow(null, ""),
 });
 
-const { Pool } = pg;
 const app = express();
 
-// Usamos el puerto del .env o el 4000 por defecto
-
-// ---------------------------
-// Configuración Neon (SEGURA)
+// 1. Inicializar Base de Datos
 import { pool, initDB } from "./db.js";
-
-// Llamar a la inicialización
 initDB();
 
-// Usamos el puerto del .env o el que asigne Render
+// 2. Puerto dinámico
 const PORT = Number(process.env.PORT) || 10000;
 
 // ---------------------------
@@ -166,149 +160,11 @@ const uploadLimiter = rateLimit({
 });
 
 // ---------------------------
-// Inicialización de Tablas (Solo si no existen)
+// Middlewares Globales
 // ---------------------------
-const initDb = async () => {
-  try {
-    // 1. ✨ CREACIÓN DE TABLAS INDIVIDUAL (Más robusto)
-
-    // Organizaciones
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS organizations (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        slug TEXT UNIQUE NOT NULL,
-        join_code TEXT UNIQUE,
-        logo_url TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Usuarios
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT DEFAULT 'user',
-        avatar_url TEXT,
-        is_verified BOOLEAN DEFAULT TRUE,
-        verification_token TEXT,
-        reset_token TEXT,
-        reset_token_expiry BIGINT,
-        organization_id INTEGER REFERENCES organizations(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Reuniones
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS meetings (
-        id SERIAL PRIMARY KEY,
-        host_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        link TEXT UNIQUE NOT NULL,
-        meeting_type TEXT DEFAULT 'instant',
-        title TEXT,
-        scheduled_time TIMESTAMP,
-        is_active BOOLEAN DEFAULT TRUE,
-        organization_id INTEGER REFERENCES organizations(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Participantes
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS participants (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
-        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Mensajes de Chat (Asegurar meeting_id)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id SERIAL PRIMARY KEY,
-        sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        recipient_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
-        content TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Archivos de Reunión
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS meeting_files (
-        id SERIAL PRIMARY KEY,
-        meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
-        file_path TEXT NOT NULL,
-        filename TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // 2. ✨ MIGRACIONES Y REFUERZOS (DO BLOCK)
-    await pool.query(`
-      DO $$
-      BEGIN
-        -- Asegurar organization por defecto
-        IF NOT EXISTS (SELECT 1 FROM organizations LIMIT 1) THEN
-          INSERT INTO organizations (name, slug, join_code) VALUES ('ASICME Global', 'asicme-global', 'GLOBAL');
-        END IF;
-
-        -- Migrar registros nulos a la primera organización disponible
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='organization_id') THEN
-          UPDATE users SET organization_id = (SELECT id FROM organizations ORDER BY id ASC LIMIT 1) WHERE organization_id IS NULL;
-        END IF;
-
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='meetings' AND column_name='organization_id') THEN
-          UPDATE meetings SET organization_id = (SELECT id FROM organizations ORDER BY id ASC LIMIT 1) WHERE organization_id IS NULL;
-        END IF;
-
-        -- Reforzar Constraints de CASCADE
-        IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'meetings_host_id_fkey') THEN
-          ALTER TABLE meetings DROP CONSTRAINT meetings_host_id_fkey;
-        END IF;
-        ALTER TABLE meetings ADD CONSTRAINT meetings_host_id_fkey FOREIGN KEY (host_id) REFERENCES users(id) ON DELETE CASCADE;
-
-        IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'participants_user_id_fkey') THEN
-          ALTER TABLE participants DROP CONSTRAINT participants_user_id_fkey;
-        END IF;
-        ALTER TABLE participants ADD CONSTRAINT participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-
-        IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'participants_meeting_id_fkey') THEN
-          ALTER TABLE participants DROP CONSTRAINT participants_meeting_id_fkey;
-        END IF;
-        ALTER TABLE participants ADD CONSTRAINT participants_meeting_id_fkey FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE;
-
-        IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'chat_messages_sender_id_fkey') THEN
-          ALTER TABLE chat_messages DROP CONSTRAINT chat_messages_sender_id_fkey;
-        END IF;
-        ALTER TABLE chat_messages ADD CONSTRAINT chat_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE;
-
-      END $$;
-    `);
-
-    console.log("✅ Base de Datos inicializada correctamente.");
-  } catch (err) {
-    console.error("❌ Error inicializando la Base de Datos:", err.stack);
-  }
-};
-initDb();
-
-// ---------------------------
-// Middleware
-// ---------------------------
-app.use(
-  cors({
-    origin: "http://localhost:5173", // Frontend URL
-    credentials: true, // Permitir cookies
-  }),
-);
+app.use(cors(corsOptions)); // ✨ Usa la configuración dinámica con logs
 app.use(express.json());
+app.use(cookieParser());
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -467,8 +323,6 @@ app.get("/download/:filename", async (req, res) => {
     res.status(500).json({ error: "No se pudo descargar" });
   }
 });
-
-app.use(cookieParser()); // Para leer cookies HTTP-only
 
 // ---------------------------
 // Root (health check)
