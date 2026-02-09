@@ -1872,6 +1872,12 @@ process.on("unhandledRejection", (reason, promise) => {
   console.error("❌ PROMESA NO MANEJADA:", reason);
 });
 
+// Middleware de Manejo de Errores (Catch-all)
+app.use((err, req, res, next) => {
+  console.error("❌ ERROR NO CONTROLADO:", err.stack);
+  res.status(500).json({ success: false, error: "Error interno del servidor" });
+});
+
 // Exportar para Firebase Functions
 export default app;
 export { app };
