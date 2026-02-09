@@ -1847,6 +1847,8 @@ setInterval(async () => {
 }, cleanupInterval);
 
 // --- ARRANQUE FINAL DEL SERVIDOR ---
+// ❌ BLOQUE COMENTADO: El arranque se maneja ahora desde index.js
+/*
 console.log(`📡 [BOOT] Intentando arrancar servidor...`);
 console.log(`📡 [BOOT] PORT: ${PORT}`);
 console.log(`📡 [BOOT] NODE_ENV: ${process.env.NODE_ENV}`);
@@ -1860,6 +1862,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 server.on("error", (err) => {
   console.error(`❌ ERROR AL ARRANCAR EL SERVIDOR: ${err.message}`);
 });
+*/
 
 process.on("uncaughtException", (err) => {
   console.error("❌ EXCEPCIÓN NO CAPTURADA:", err);
