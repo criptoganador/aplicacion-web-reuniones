@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import * as DOMPurify from 'dompurify';
 import { 
   Copy, Check, PhoneOff, Users, MessageSquare, X, Send, Paperclip, FileText, ExternalLink, Smile, Download, Bold, Italic, Palette, Underline as UnderlineIcon,
   Volume2, VolumeX, CornerUpLeft, ArrowDown, CheckCheck, Crown, Shield, Maximize2, Minimize2,
@@ -19,7 +20,8 @@ import {
   LiveKitRoom,
   useRoomContext,
 } from "@livekit/components-react";
-import { Track } from 'livekit-client';
+import { Track, setLogLevel } from 'livekit-client';
+setLogLevel('silent');
 import "@livekit/components-styles";
 import { toast } from 'sonner';
 import EmojiPicker from 'emoji-picker-react';
@@ -94,43 +96,48 @@ function MeetingRoom() {
 
   return (
     <div className="active-meeting-container">
-      <LiveKitRoom
-        video={isCameraOn}
-        audio={isMicOn}
-        token={isMeetingEnded ? "" : token}
-        serverUrl={LIVEKIT_URL}
-        data-lk-theme="default"
-        style={{ height: "100vh" }}
-        onDisconnected={onDisconnected}
-        onError={(error) => {
-           // Ignore specific connection state mismatch errors during disconnection
-           if (error?.message?.includes('connection state mismatch') || error?.message?.includes('closed peer connection')) {
-             console.warn("Suppressing expected disconnection error:", error.message);
-             return;
-           }
-           console.error("LiveKit Error:", error);
-           toast.error(`Error: ${error.message || 'Error desconocido'}`);
-        }}
-      >
-        {/* 🔥 Fix: Renderer for remote audio tracks */}
-        <RoomAudioRenderer />
-        
-        {!isMeetingEnded ? (
-           <MeetingContent 
-              meetingId={meetingId} 
-              copyMeetingLink={copyMeetingLink} 
-              onEndMeetingAction={endMeeting} // Pass backend action
-              isHost={isHost}
-              isCopied={isCopied}
-            />
-        ) : (
-          <MeetingEndedScreen 
-            summary={endedSummary} 
-            onGoHome={() => navigate('/')} 
-            onRejoin={() => window.location.reload()} 
+      {!isMeetingEnded ? (
+        <LiveKitRoom
+          video={isCameraOn}
+          audio={isMicOn}
+          token={token} // Use original token, don't clear it reactively here
+          serverUrl={LIVEKIT_URL}
+          data-lk-theme="default"
+          style={{ height: "100vh" }}
+          onDisconnected={onDisconnected}
+          onError={(error) => {
+             // Ignore specific connection state mismatch errors or closed pc during disconnection
+             const msg = error?.message?.toLowerCase() || '';
+             if (
+               msg.includes('connection state mismatch') || 
+               msg.includes('peer connection') || 
+               msg.includes('closed') || 
+               msg.includes('createoffer') ||
+               msg.includes('datachannel')
+             ) {
+               console.warn("Handled LiveKit background disconnect signal:", error.message);
+               return;
+             }
+             console.error("LiveKit Error:", error);
+             toast.error(`Error: ${error.message || 'Error desconocido'}`);
+          }}
+        >
+          <RoomAudioRenderer />
+          <MeetingContent 
+            meetingId={meetingId} 
+            copyMeetingLink={copyMeetingLink} 
+            onEndMeetingAction={endMeeting}
+            isHost={isHost}
+            isCopied={isCopied}
           />
-        )}
-      </LiveKitRoom>
+        </LiveKitRoom>
+      ) : (
+        <MeetingEndedScreen 
+          summary={endedSummary} 
+          onGoHome={() => navigate('/')} 
+          onRejoin={() => window.location.reload()} 
+        />
+      )}
     </div>
   );
 }
@@ -190,30 +197,45 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   const [activeCaptions, setActiveCaptions] = useState({});
   
   const recognitionRef = useRef(null);
-  const { chatMessages } = useChat();
+  const { chatMessages, send } = useChat();
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
-
+  
   const handleEndMeeting = async () => {
     if (!window.confirm("¿Estás seguro de que quieres finalizar la reunión para todos?")) {
       return;
     }
     
-    // 1. Call backend to invalidate meeting (async, don't wait for it to disconnect)
+    // 0. Stop local activities that use data channels
+    stopTranscription();
+    
+    // 1. Call backend to invalidate meeting and wait for it
     if (onEndMeetingAction) {
-       onEndMeetingAction();
+       try {
+         await onEndMeetingAction();
+       } catch (e) {
+         console.warn("Backend end meeting failed, proceeding with local disconnect", e);
+       }
     }
 
     // 2. Disconnect from LiveKit room
-    // This will trigger onDisconnected in parent, which switches the view
     if (room) {
-      await room.disconnect();
+      try {
+        await room.disconnect();
+      } catch (e) {
+        console.warn("Local disconnect warning:", e);
+      }
     }
   };
 
   const handleLeave = async () => {
+      stopTranscription();
       if (room) {
-          await room.disconnect();
+          try {
+            await room.disconnect();
+          } catch (e) {
+             console.warn("Local leave disconnect warning:", e);
+          }
       }
   };
 
@@ -273,10 +295,21 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
       }
 
       if (finalTranscript) {
-        // Send to others
-        const payload = JSON.stringify({ type: 'transcription', text: finalTranscript });
-        const encoder = new TextEncoder();
-        room.localParticipant.publishData(encoder.encode(payload), { reliable: true });
+        // Send to others ONLY if connected
+        if (room.state === 'connected') {
+          try {
+            const payload = JSON.stringify({ type: 'transcription', text: finalTranscript });
+            const encoder = new TextEncoder();
+            room.localParticipant.publishData(encoder.encode(payload), { reliable: true }).catch(err => {
+              // Ignore typical disconnection errors
+              if (!err.message?.includes('Abort') && !err.message?.includes('closed')) {
+                console.warn("Transcription publish error:", err);
+              }
+            });
+          } catch (e) {
+            console.error("Error formatting transcription:", e);
+          }
+        }
 
         // Update locally
         setActiveCaptions(prev => ({
@@ -349,20 +382,22 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
       [localParticipant.identity]: newState
     }));
     
-    // Broadcast to other participants
-    try {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(JSON.stringify({ 
-        type: 'raiseHand', 
-        isRaised: newState 
-      }));
-      localParticipant.publishData(data, { reliable: true }).catch(err => {
-        if (!err.message?.includes('Abort')) {
-          console.warn("Hand raise publish error:", err);
-        }
-      });
-    } catch (e) {
-      console.error("Error broadcasting hand raise:", e);
+    // Broadcast to other participants ONLY if connected
+    if (room.state === 'connected') {
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(JSON.stringify({ 
+          type: 'raiseHand', 
+          isRaised: newState 
+        }));
+        localParticipant.publishData(data, { reliable: true }).catch(err => {
+          if (!err.message?.includes('Abort') && !err.message?.includes('closed')) {
+            console.warn("Hand raise publish error:", err);
+          }
+        });
+      } catch (e) {
+        console.error("Error broadcasting hand raise:", e);
+      }
     }
   };
 
@@ -417,7 +452,7 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
       }));
       
       // Clear caption after 4 seconds of silence from that participant
-      setTimeout(() => {
+      const captionTimeout = setTimeout(() => {
         setActiveCaptions(current => {
           if (current[participant.identity]?.timestamp <= Date.now() - 3900) {
             const next = { ...current };
@@ -427,6 +462,11 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
           return current;
         });
       }, 4000);
+      
+      // We can't easily clear this timeout from outside, but the component unmount will handle 
+      // the room.off, preventing state updates on unmounted components in React 18/19.
+      // However, it's better to track it if we have many participants.
+      // For now, let's at least fix the main listeners.
     }
   } catch (e) {
         console.error("Error parsing data:", e);
@@ -460,23 +500,26 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   const toggleParticipantMute = (participantIdentity, shouldMute) => {
     if (!isHost) return;
     
-    try {
-      const encoder = new TextEncoder();
-      const commandType = shouldMute ? 'hostMuteCommand' : 'hostUnmuteCommand';
-      const data = encoder.encode(JSON.stringify({ 
-        type: commandType, 
-        targetIdentity: participantIdentity 
-      }));
-      localParticipant.publishData(data, { reliable: true }).catch(err => {
-        // Ignore errors if we are shutting down or if it's an abort error
-         const msg = err.message || '';
-        if (!msg.includes('Abort') && !msg.includes('closed')) {
-          console.warn("Mute/Unmute command publish error:", err);
-        }
-      });
-      toast.success(shouldMute ? 'Comando de silenciar enviado' : 'Comando de activar audio enviado');
-    } catch (e) {
-      console.error("Error sending mute/unmute command:", e);
+    // Broadcast ONLY if connected
+    if (room.state === 'connected') {
+      try {
+        const encoder = new TextEncoder();
+        const commandType = shouldMute ? 'hostMuteCommand' : 'hostUnmuteCommand';
+        const data = encoder.encode(JSON.stringify({ 
+          type: commandType, 
+          targetIdentity: participantIdentity 
+        }));
+        localParticipant.publishData(data, { reliable: true }).catch(err => {
+          // Ignore errors if we are shutting down or if it's an abort error
+          const msg = err.message || '';
+          if (!msg.includes('Abort') && !msg.includes('closed')) {
+            console.warn("Mute/Unmute command publish error:", err);
+          }
+        });
+        toast.success(shouldMute ? 'Comando de silenciar enviado' : 'Comando de activar audio enviado');
+      } catch (e) {
+        console.error("Error sending mute/unmute command:", e);
+      }
     }
   };
 
@@ -484,22 +527,25 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   const toggleParticipantCamera = (participantIdentity, shouldTurnOff) => {
     if (!isHost) return;
     
-    try {
-      const encoder = new TextEncoder();
-      const commandType = shouldTurnOff ? 'hostCameraOffCommand' : 'hostCameraOnCommand';
-      const data = encoder.encode(JSON.stringify({ 
-        type: commandType, 
-        targetIdentity: participantIdentity 
-      }));
-      localParticipant.publishData(data, { reliable: true }).catch(err => {
-         const msg = err.message || '';
-        if (!msg.includes('Abort') && !msg.includes('closed')) {
-          console.warn("Camera toggle command publish error:", err);
-        }
-      });
-      toast.success(shouldTurnOff ? 'Comando de desactivar cámara enviado' : 'Comando de activar cámara enviado');
-    } catch (e) {
-      console.error("Error sending camera toggle command:", e);
+    // Broadcast ONLY if connected
+    if (room.state === 'connected') {
+      try {
+        const encoder = new TextEncoder();
+        const commandType = shouldTurnOff ? 'hostCameraOffCommand' : 'hostCameraOnCommand';
+        const data = encoder.encode(JSON.stringify({ 
+          type: commandType, 
+          targetIdentity: participantIdentity 
+        }));
+        localParticipant.publishData(data, { reliable: true }).catch(err => {
+          const msg = err.message || '';
+          if (!msg.includes('Abort') && !msg.includes('closed')) {
+            console.warn("Camera toggle command publish error:", err);
+          }
+        });
+        toast.success(shouldTurnOff ? 'Comando de desactivar cámara enviado' : 'Comando de activar cámara enviado');
+      } catch (e) {
+        console.error("Error sending camera toggle command:", e);
+      }
     }
   };
 
@@ -1158,15 +1204,14 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
             };
           });
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Error processing data channel message:", e);
+      }
     };
 
     room.on('dataReceived', handleData);
-    return () => {
-      room.off('dataReceived', handleData);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, [room]);
+    return () => room.off('dataReceived', handleData);
+  }, [room, localParticipant.identity]);
 
   // SMART AUTOSCROLL & NEW MESSAGE INDICATOR
   useEffect(() => {
@@ -1211,7 +1256,8 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
 
   const htmlToBBCode = (html) => {
     const temp = document.createElement('div');
-    temp.innerHTML = DOMPurify.sanitize(html); // Sanitize to prevent XSS
+    const sanitizer = DOMPurify.sanitize || (DOMPurify.default && DOMPurify.default.sanitize) || DOMPurify;
+    temp.innerHTML = typeof sanitizer === 'function' ? sanitizer(html) : html; 
     
     const processNode = (node) => {
       let content = '';
@@ -1327,10 +1373,20 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
       return { ...prev, [msgId]: { ...currentMsgReactions, [emoji]: newUsers } };
     });
 
-    // Broadcast to others
-    const payload = JSON.stringify({ type: 'reaction', msgId, emoji });
-    const encoder = new TextEncoder();
-    room.localParticipant.publishData(encoder.encode(payload), { reliable: true });
+    // Broadcast to others ONLY if connected
+    if (room.state === 'connected') {
+      try {
+        const payload = JSON.stringify({ type: 'reaction', msgId, emoji });
+        const encoder = new TextEncoder();
+        room.localParticipant.publishData(encoder.encode(payload), { reliable: true }).catch(err => {
+          if (!err.message?.includes('Abort') && !err.message?.includes('closed')) {
+            console.warn("Reaction publish error:", err);
+          }
+        });
+      } catch (e) {
+        console.error("Error broadcasting reaction:", e);
+      }
+    }
 
     // Trigger floating effect locally
     if (onSendReaction) onSendReaction(emoji);

@@ -165,7 +165,15 @@ function PreLobby() {
       if (data.success) {
         setMeetingData(data.meeting);
       } else {
-        setError('Este enlace ha superado el tiempo límite de validez (2 horas para reuniones programadas o 5 minutos para instantáneas). Por favor, crea una nueva reunión para continuar.');
+        // 🟢 NUEVO: Si soy el dueño y la reunión expiró/finalizó, no bloquear.
+        // Permitir que handleJoinMeeting la reactive usando /meetings/start.
+        if (isHost || localStorage.getItem(`host_${id}`) === 'true') {
+            console.log("Reunión inactiva detectada, pero el usuario es el anfitrión. Habilitando reactivación.");
+            setMeetingData(null); // No tenemos data activa, pero no bloqueamos con setError
+            setIsHost(true);
+        } else {
+            setError('Este enlace ha superado el tiempo límite de validez (2 horas para reuniones programadas o 5 minutos para instantáneas). Por favor, crea una nueva reunión para continuar.');
+        }
       }
     } catch (err) {
       console.error('Error validating meeting:', err);
@@ -207,7 +215,7 @@ function PreLobby() {
           'Content-Type': 'application/json' 
         },
         body: JSON.stringify({
-          meeting_id: idToUse || 999,
+          meeting_id: idToUse || linkToUse,
           name: name,
           email: email
         })

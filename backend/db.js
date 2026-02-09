@@ -34,9 +34,7 @@ export const initDB = async () => {
         logo_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `);
 
-    await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
@@ -48,12 +46,10 @@ export const initDB = async () => {
         verification_token TEXT,
         reset_token TEXT,
         reset_token_expiry BIGINT,
-        organization_id INTEGER REFERENCES organizations(id),
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `);
 
-    await client.query(`
       CREATE TABLE IF NOT EXISTS meetings (
         id SERIAL PRIMARY KEY,
         host_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -61,22 +57,20 @@ export const initDB = async () => {
         meeting_type TEXT DEFAULT 'instant',
         title TEXT,
         scheduled_time TIMESTAMP,
+        organized_by TEXT,
         is_active BOOLEAN DEFAULT TRUE,
-        organization_id INTEGER REFERENCES organizations(id),
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `);
 
-    await client.query(`
       CREATE TABLE IF NOT EXISTS participants (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
-        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, meeting_id)
       );
-    `);
 
-    await client.query(`
       CREATE TABLE IF NOT EXISTS chat_messages (
         id SERIAL PRIMARY KEY,
         sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -85,9 +79,7 @@ export const initDB = async () => {
         content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `);
 
-    await client.query(`
       CREATE TABLE IF NOT EXISTS meeting_files (
         id SERIAL PRIMARY KEY,
         meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE,
@@ -97,11 +89,25 @@ export const initDB = async () => {
       );
     `);
 
-    // 2. ✨ MIGRACIONES Y REFUERZOS
+    // 2. ✨ MIGRACIONES DINÁMICAS (Para bases ya existentes)
     await client.query(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (SELECT 1 FROM organizations LIMIT 1) THEN
+      -- Asegurar organized_by
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='meetings' AND column_name='organized_by') THEN
+          ALTER TABLE meetings ADD COLUMN organized_by TEXT;
+        END IF;
+      END $$;
+
+      -- Asegurar meeting_type
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='meetings' AND column_name='meeting_type') THEN
+          ALTER TABLE meetings ADD COLUMN meeting_type TEXT DEFAULT 'instant';
+        END IF;
+      END $$;
+
+      -- Asegurar organización por defecto
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM organizations WHERE slug = 'asicme-global') THEN
           INSERT INTO organizations (name, slug, join_code) VALUES ('ASICME Global', 'asicme-global', 'GLOBAL');
         END IF;
       END $$;

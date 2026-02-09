@@ -31,20 +31,19 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Configuración de CORS dinámica
+// Configuración de CORS local
 const allowedOrigins = [
   "http://localhost:5173",
-  process.env.FRONTEND_URL, // ✨ Render Frontend URL
-].filter(Boolean); // Eliminar valores nulos/undefined
+  "http://localhost:5174",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // En producción, imprimimos logs para depurar si falla
-    if (process.env.NODE_ENV === "production") {
-      console.log(
-        `🔍 CORS: Origin=${origin} | Allowed=${JSON.stringify(allowedOrigins)}`,
-      );
-    }
+    // Log para depuración
+    console.log(
+      `🔍 CORS attempt from: ${origin || "no-origin"} | Allowed: ${JSON.stringify(allowedOrigins)}`,
+    );
 
     if (
       !origin ||
@@ -54,7 +53,6 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.warn(`❌ CORS bloqueado para: ${origin}`);
-      // En lugar de error, devolvemos false para que la librería maneje el rechazo limpiamente
       callback(null, false);
     }
   },
@@ -97,6 +95,12 @@ const meetingSchema = Joi.object({
   title: Joi.string().max(100).optional().allow(null, ""),
   scheduled_time: Joi.date().iso().optional().allow(null),
   organized_by: Joi.string().max(50).optional().allow(null, ""),
+});
+
+const joinSchema = Joi.object({
+  meeting_id: Joi.alternatives().try(Joi.number(), Joi.string()).required(),
+  name: Joi.string().min(2).max(50).required(),
+  email: Joi.string().email().required(),
 });
 
 const app = express();
@@ -170,14 +174,15 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" },
     contentSecurityPolicy: {
       directives: {
-        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "default-src": ["'self'"],
         "script-src": [
           "'self'",
           "'unsafe-inline'",
           "'unsafe-eval'",
+          "blob:",
           "https://*.livekit.cloud",
         ],
+        "worker-src": ["'self'", "blob:"],
         "style-src": [
           "'self'",
           "'unsafe-inline'",
@@ -209,7 +214,9 @@ app.use(
 
 // LOGGING MIDDLEWARE (Debug)
 app.use((req, res, next) => {
-  console.log(`📡 Request received: ${req.method} ${req.path}`);
+  if (process.env.NODE_ENV === "development") {
+    console.log(`📡 Request received: ${req.method} ${req.path}`);
+  }
   next();
 });
 
@@ -232,7 +239,9 @@ console.log(`📂 Serving static files from: ${uploadDir}`);
 app.use(
   "/uploads",
   (req, res, next) => {
-    console.log(`📸 Static request: ${req.url}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`📸 Static request: ${req.url}`);
+    }
     next();
   },
   express.static(uploadDir),
@@ -306,29 +315,11 @@ async function saveFileReference(meeting_id, fileUrl, originalName) {
   }
 }
 
-// ENDPOINT DE DESCARGA FORZADA (Cloud)
-app.get("/download/:filename", async (req, res) => {
-  const filename = req.params.filename;
-  try {
-    const file = bucket.file(filename);
-    const [exists] = await file.exists();
-    if (!exists) {
-      return res.status(404).json({ error: "Archivo no encontrado" });
-    }
-    const cleanName = filename.split("-").slice(1).join("-");
-    res.setHeader("Content-disposition", `attachment; filename=${cleanName}`);
-    file.createReadStream().pipe(res);
-  } catch (err) {
-    console.error("❌ Error en descarga:", err);
-    res.status(500).json({ error: "No se pudo descargar" });
-  }
-});
-
 // ---------------------------
 // Root (health check)
 // ---------------------------
 app.get("/", (req, res) => {
-  res.send(`ASICME Meet backend OK en puerto ${PORT} 🚀`);
+  res.send(`ASICME Meet backend OK (Local) en puerto ${PORT} 🚀`);
 });
 
 // ===========================
@@ -352,6 +343,11 @@ app.post("/meetings/start", authenticateToken, async (req, res) => {
     const result = await pool.query(
       `INSERT INTO meetings (host_id, link, is_active, meeting_type, title, scheduled_time, organized_by, organization_id)
        VALUES ($1, $2, true, $3, $4, $5, $6, $7)
+       ON CONFLICT (link) 
+       DO UPDATE SET 
+          is_active = true, 
+          created_at = CURRENT_TIMESTAMP,
+          host_id = EXCLUDED.host_id
        RETURNING id, link, is_active, meeting_type, title, scheduled_time, organized_by, organization_id`,
       [
         host_id || null,
@@ -360,16 +356,16 @@ app.post("/meetings/start", authenticateToken, async (req, res) => {
         title || null,
         scheduled_time || null,
         organized_by || null,
-        req.user.organizationId, // 🏢 De la sesión del usuario
+        req.user.organizationId,
       ],
     );
 
     const meeting = result.rows[0];
 
-    // Host como participante (si existe)
+    // Host como participante (si existe) - Evitar duplicados
     if (host_id) {
       await pool.query(
-        "INSERT INTO participants (meeting_id, user_id) VALUES ($1, $2)",
+        "INSERT INTO participants (meeting_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
         [meeting.id, host_id],
       );
     }
@@ -462,14 +458,15 @@ app.get("/meetings/list", authenticateToken, async (req, res) => {
 // 🔹 Unirse a reunión (CON EMAIL REAL - Login o Registro Automático)
 app.post("/meetings/join", async (req, res) => {
   try {
-    // 1. Recibimos el meeting_id, name y email del frontend
-    const { meeting_id, name, email } = req.body;
-
-    if (!meeting_id || !name || !email) {
+    // 1. Validar con Joi
+    const { error, value } = joinSchema.validate(req.body);
+    if (error) {
       return res
         .status(400)
-        .json({ error: "Faltan datos: ID, nombre o email" });
+        .json({ success: false, error: error.details[0].message });
     }
+
+    const { meeting_id, name, email } = value;
 
     console.log(
       `📧 Procesando ingreso para: ${email} en reunión: ${meeting_id}`,
@@ -483,12 +480,23 @@ app.post("/meetings/join", async (req, res) => {
       [email],
     );
 
-    // Obtener la organización de la reunión
+    // Obtener la organización de la reunión y su ID real
+    const isNumericId = !isNaN(meeting_id);
     const meetingRes = await pool.query(
-      "SELECT organization_id FROM meetings WHERE id = $1",
+      isNumericId
+        ? "SELECT id, organization_id FROM meetings WHERE id = $1"
+        : "SELECT id, organization_id FROM meetings WHERE link = $1",
       [meeting_id],
     );
-    const meetingOrgId = meetingRes.rows[0]?.organization_id;
+
+    if (meetingRes.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Reunión no encontrada" });
+    }
+
+    const realMeetingId = meetingRes.rows[0].id;
+    const meetingOrgId = meetingRes.rows[0].organization_id;
 
     if (userCheck.rows.length > 0) {
       userId = userCheck.rows[0].id;
@@ -508,20 +516,20 @@ app.post("/meetings/join", async (req, res) => {
     // 3. UNIRLO A LA SALA (Evitando duplicados)
     const participantCheck = await pool.query(
       "SELECT * FROM participants WHERE meeting_id = $1 AND user_id = $2",
-      [meeting_id, userId],
+      [realMeetingId, userId],
     );
 
     if (participantCheck.rows.length === 0) {
       await pool.query(
         "INSERT INTO participants (meeting_id, user_id) VALUES ($1, $2)",
-        [meeting_id, userId],
+        [realMeetingId, userId],
       );
-      console.log(`🔗 Usuario ${userId} unido a la reunión ${meeting_id}`);
+      console.log(`🔗 Usuario ${userId} unido a la reunión ${realMeetingId}`);
     } else {
       console.log(`⚠️ El usuario ${userId} ya estaba en la reunión.`);
     }
 
-    res.json({ success: true, user_id: userId });
+    res.json({ success: true, user_id: userId, meeting_id: realMeetingId });
   } catch (err) {
     console.error("❌ ERROR EN JOIN:", err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -1037,11 +1045,11 @@ app.put("/auth/change-password", authenticateToken, async (req, res) => {
 
     // 3. Hashear nueva contraseña
     const salt = await bcrypt.genSalt(10);
-    const hashedBtn = await bcrypt.hash(newPassword, salt);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     // 4. Actualizar en BD
     await pool.query("UPDATE users SET password = $1 WHERE id = $2", [
-      hashedBtn,
+      hashedPassword,
       userId,
     ]);
 

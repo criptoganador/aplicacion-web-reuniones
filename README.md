@@ -1,17 +1,47 @@
-# React + Vite
+# ASICME Meet - Videoconferencia (Entorno Local)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación profesional de videoconferencias diseñada para el entorno local corporativo de ASICME.
 
-Currently, two official plugins are available:
+## 🚀 Inicio Rápido Local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Sigue estos pasos para ejecutar el proyecto en tu máquina local:
 
-## React Compiler
+### 1. Clonar e Instalar
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# Instalar dependencias del proyecto raíz
+npm install
 
-## Expanding the ESLint configuration
+# Instalar dependencias del backend
+cd backend
+npm install
+cd ..
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-# video-confrencias
+### 2. Configurar Variables de Entorno
+
+Copia el archivo `.env.example` a `.env` tanto en la raíz como en la carpeta `backend/` y completa las credenciales de:
+
+- **LiveKit**: URL, API Key y Secret.
+- **Base de Datos**: DATABASE_URL de Neon o PostgreSQL local.
+- **Cloudinary**: Para la subida de archivos (opcional localmente si usas storage local).
+
+### 3. Ejecutar
+
+```bash
+# Terminal 1: Frontend
+npm run dev
+
+# Terminal 2: Backend
+npm run start (o npm run server para nodemon)
+```
+
+## 🛠️ Tecnologías
+
+- **Frontend**: React 19, Vite, LiveKit SDK, Tailwind/CSS.
+- **Backend**: Node.js, Express, PostgreSQL.
+- **Comunicación**: LiveKit (WebRTC).
+
+## 🏠 Entorno Local
+
+Actualmente el proyecto está configurado para operar exclusivamente en `http://localhost:5174`.
