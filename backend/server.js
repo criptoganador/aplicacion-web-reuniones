@@ -1856,7 +1856,6 @@ setInterval(async () => {
 }, cleanupInterval);
 
 // --- ARRANQUE FINAL DEL SERVIDOR ---
-const PORT = process.env.PORT || 4000;
 
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 [SUCCESS] SERVIDOR ESCUCHANDO EN PUERTO: ${PORT}`);
@@ -1864,12 +1863,6 @@ const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(
     `🏁 [INFO] Registro completo y servidor listo para recibir tráfico.`,
   );
-
-  // 🧹 Arrancar el Agente de Limpieza DESPUÉS de que el servidor esté listo
-  setInterval(async () => {
-    // La lógica de limpieza ya está definida arriba en el archivo
-    // Pero si moviste el setInterval aquí, asegúrate de que use cleanupInterval
-  }, cleanupInterval);
 });
 
 server.on("error", (err) => {
