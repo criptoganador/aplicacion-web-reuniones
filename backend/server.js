@@ -31,11 +31,12 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Configuración de CORS local
+// Configuración de CORS dinámica
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   process.env.FRONTEND_URL,
+  // 🟢 Render permite usar comodines o URLs dinámicas aquí
 ].filter(Boolean);
 
 const corsOptions = {
