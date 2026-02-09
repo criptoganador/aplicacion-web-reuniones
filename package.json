@@ -7,8 +7,13 @@
   "author": "ASICME",
   "main": "electron/main.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "npx concurrently \"npm run dev\" \"npx wait-on http://localhost:5173 && npx cross-env ELECTRON_START_URL=http://localhost:5173 npm run electron\"",
+    "package": "npm run build && npx electron-builder"
   },
   "dependencies": {
     "@livekit/components-react": "^2.9.19",
