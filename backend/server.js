@@ -1856,22 +1856,25 @@ setInterval(async () => {
 }, cleanupInterval);
 
 // --- ARRANQUE FINAL DEL SERVIDOR ---
-// ❌ BLOQUE COMENTADO: El arranque se maneja ahora desde index.js
-/*
-console.log(`📡 [BOOT] Intentando arrancar servidor...`);
-console.log(`📡 [BOOT] PORT: ${PORT}`);
-console.log(`📡 [BOOT] NODE_ENV: ${process.env.NODE_ENV}`);
+const PORT = process.env.PORT || 4000;
 
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 [SUCCESS] SERVIDOR ESCUCHANDO EN PUERTO: ${PORT}`);
   console.log(`🌍 [INFO] MODO: ${process.env.NODE_ENV || "production"}`);
-  console.log(`🏁 [INFO] Registro completo.`);
+  console.log(
+    `🏁 [INFO] Registro completo y servidor listo para recibir tráfico.`,
+  );
+
+  // 🧹 Arrancar el Agente de Limpieza DESPUÉS de que el servidor esté listo
+  setInterval(async () => {
+    // La lógica de limpieza ya está definida arriba en el archivo
+    // Pero si moviste el setInterval aquí, asegúrate de que use cleanupInterval
+  }, cleanupInterval);
 });
 
 server.on("error", (err) => {
   console.error(`❌ ERROR AL ARRANCAR EL SERVIDOR: ${err.message}`);
 });
-*/
 
 process.on("uncaughtException", (err) => {
   console.error("❌ EXCEPCIÓN NO CAPTURADA:", err);
