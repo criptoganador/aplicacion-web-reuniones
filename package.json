@@ -7,6 +7,8 @@
   "author": "ASICME",
   "main": "electron/main.js",
   "scripts": {
+    "start": "node backend/index.js",
+    "server": "nodemon backend/index.js",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
