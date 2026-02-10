@@ -66,13 +66,6 @@ function Header({ showUserMenu = true }) {
     <header className="header">
       <div className="header-left">
         <a href="/" className="header-logo">
-          {/* Logo Imagen (si existe) */}
-          <img 
-            src="/asicme_icon_1770541736795.png" 
-            alt="ASICME Logo" 
-            className="header-logo-image" 
-            onError={(e) => e.target.style.display = 'none'} 
-          />
           <Video className="header-logo-icon" />
           <span className="header-logo-text">ASICME</span>
           <span className="header-logo-subtitle">Meet</span>
