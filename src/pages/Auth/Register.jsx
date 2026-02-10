@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Video, User, Mail, Lock, UserPlus, ArrowRight, AlertCircle, Palette } from 'lucide-react';
+import { Video, User, Mail, Lock, UserPlus, ArrowRight, AlertCircle, Palette, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import './Auth.css';
