@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Video conferencing application for ASICME",
   "author": "ASICME",
-  "main": "electron/main.js",
+  "main": "electron/main.cjs",
   "scripts": {
     "start": "node backend/index.js",
     "server": "nodemon backend/index.js",

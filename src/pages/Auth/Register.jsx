@@ -17,6 +17,8 @@ function Register() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -183,20 +185,31 @@ function Register() {
                 </div>
               </div>
 
-              <div className="input-group">
-                <label htmlFor="password">Contraseña</label>
-                <div className="input-field">
-                  <Lock size={20} />
+              <div className={`input-group floating ${password || focusedField === 'password' ? 'has-value' : ''}`}>
+                <div className={`input-field glass-input ${focusedField === 'password' ? 'focused' : ''}`}>
+                  <Lock size={20} className="input-icon" />
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="Mínimo 8 caracteres"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
                     required
                     autoComplete="new-password"
                   />
+                  <label htmlFor="password" className="floating-label">Contraseña</label>
+                  <button 
+                    type="button" 
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
 
