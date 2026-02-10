@@ -5,7 +5,7 @@ const AuthContext = createContext();
 // ✨ HYBRID MODE: Check if Electron injected a local API URL
 // This is now a function to always get the latest value
 const getApiUrl = () => {
-  let url = 'http://localhost:4000'; // Default
+  let url = 'https://asicme-meet-backend.onrender.com'; // Default production API
 
   // 1. Electron check
   if (typeof window !== 'undefined' && window.electron) {
@@ -16,23 +16,27 @@ const getApiUrl = () => {
       const localUrl = window.electron.getLocalApiUrl();
       if (localUrl) url = localUrl;
     }
+    // Note: If no local URL/port is provided by Electron, 
+    // it will keep the default production URL defined above.
   } 
-  // 2. Environment Variable check
+  // 2. Development environment check
+  else if (import.meta.env.DEV) {
+    url = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  }
+  // 3. Environment Variable check
   else if (import.meta.env.VITE_API_URL) {
     url = import.meta.env.VITE_API_URL;
   }
 
-  // Debug log (only once or when it changes to avoid noise)
+  // Debug log
   if (typeof window !== 'undefined' && !window._apiUrlLogged) {
     console.log(`🌐 [API] Using endpoint: ${url}`);
-    if (url.includes('localhost') && window.location.hostname !== 'localhost') {
-      console.warn('⚠️ [API] Warning: You are in production but targetting localhost!');
-    }
     window._apiUrlLogged = true;
   }
 
   return url;
 };
+
 
 // Export getApiUrl function for use in other components
 export { getApiUrl };

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import * as DOMPurify from 'dompurify';
+import DOMPurify from 'dompurify';
 import { 
   Copy, Check, PhoneOff, Users, MessageSquare, X, Send, Paperclip, FileText, ExternalLink, Smile, Download, Bold, Italic, Palette, Underline as UnderlineIcon,
   Volume2, VolumeX, CornerUpLeft, ArrowDown, CheckCheck, Crown, Shield, Maximize2, Minimize2,
@@ -1256,7 +1256,7 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
 
   const htmlToBBCode = (html) => {
     const temp = document.createElement('div');
-    const sanitizer = DOMPurify.sanitize || (DOMPurify.default && DOMPurify.default.sanitize) || DOMPurify;
+    const sanitizer = DOMPurify.sanitize || (DOMPurify.default && DOMPurify.default.sanitize);
     temp.innerHTML = typeof sanitizer === 'function' ? sanitizer(html) : html; 
     
     const processNode = (node) => {
