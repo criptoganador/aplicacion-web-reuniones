@@ -130,11 +130,11 @@ function Header({ showUserMenu = true }) {
             >
               <div className="header-avatar-wrapper">
                 <div className="header-avatar">
-                  {isAuthenticated ? (
+                  {isAuthenticated && user ? (
                     user.avatar_url ? (
                       <img src={user.avatar_url} alt="" className="header-avatar-img" />
                     ) : (
-                      <span>{user.name.charAt(0).toUpperCase()}</span>
+                      <span>{user.name ? user.name.charAt(0).toUpperCase() : '?'}</span>
                     )
                   ) : (
                     <User size={18} />
@@ -142,7 +142,7 @@ function Header({ showUserMenu = true }) {
                 </div>
                 {isAuthenticated && <span className="avatar-status-dot"></span>}
               </div>
-              {isAuthenticated && (
+              {isAuthenticated && user?.name && (
                 <span className="header-user-name">{user.name}</span>
               )}
               <ChevronDown size={16} className="header-chevron" />
@@ -152,20 +152,20 @@ function Header({ showUserMenu = true }) {
               <div className="header-user-dropdown glass-panel">
                 <div className="dropdown-profile-header">
                   <div className="dropdown-avatar-large">
-                    {user.avatar_url ? (
+                    {user?.avatar_url ? (
                       <img src={user.avatar_url} alt="" />
                     ) : (
-                      <span>{user.name.charAt(0).toUpperCase()}</span>
+                      <span>{user?.name ? user.name.charAt(0).toUpperCase() : '?'}</span>
                     )}
                   </div>
                   <div className="dropdown-user-info">
                     <div className="dropdown-name-row">
-                      <p className="user-name">{user.name}</p>
-                      <span className={`role-badge ${user.role}`}>
-                        {user.role === 'admin' ? 'Administrador' : 'Usuario'}
+                      <p className="user-name">{user?.name || 'Usuario'}</p>
+                      <span className={`role-badge ${user?.role || 'user'}`}>
+                        {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
                       </span>
                     </div>
-                    <p className="user-email">{user.email}</p>
+                    <p className="user-email">{user?.email || ''}</p>
                   </div>
                 </div>
                 

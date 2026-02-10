@@ -713,6 +713,7 @@ app.post("/auth/register", registerLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ ERROR CRÍTICO EN REGISTRO:", err);
+    console.error("🔍 Request Body:", req.body);
     res.status(500).json({
       success: false,
       error: "Error interno del servidor",

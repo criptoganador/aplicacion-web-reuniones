@@ -105,6 +105,28 @@ export const initDB = async () => {
         END IF;
       END $$;
 
+      -- Asegurar columnas en la tabla users
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='organization_id') THEN
+          ALTER TABLE users ADD COLUMN organization_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL;
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='is_verified') THEN
+          ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT TRUE;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='verification_token') THEN
+          ALTER TABLE users ADD COLUMN verification_token TEXT;
+        END IF;
+      END $$;
+
+      -- Asegurar join_code en organizations
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='join_code') THEN
+          ALTER TABLE organizations ADD COLUMN join_code TEXT UNIQUE;
+        END IF;
+      END $$;
+
       -- Asegurar organización por defecto
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM organizations WHERE slug = 'asicme-global') THEN
