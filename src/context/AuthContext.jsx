@@ -55,6 +55,13 @@ export function AuthProvider({ children }) {
       });
 
       if (response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+           const text = await response.text();
+           console.error("❌ [AUTH] El servidor no devolvió JSON. Devolvió:", text.substring(0, 100));
+           return false;
+        }
+
         const data = await response.json();
         if (data.success !== false) {
           // 🚀 Optimización: Solo actualizar si hay cambios para evitar re-renders innecesarios

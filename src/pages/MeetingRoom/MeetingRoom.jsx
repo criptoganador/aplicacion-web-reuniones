@@ -218,17 +218,22 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   // --- RECORDING LOGIC ---
   const startRecording = async () => {
     try {
+      toast.info("Para grabar la reunión, elige 'Esta pestaña' (o 'Microsoft Edge Tab') y marca la casilla 'Compartir audio'", {
+        duration: 6000,
+        position: 'top-center'
+      });
+
       // 1. Capture stream with system audio
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           cursor: "always",
           displaySurface: "browser"
         },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        }
+        audio: true, // Simplificado para mejor soporte
+        // @ts-ignore
+        preferCurrentTab: true,
+        selfBrowserSurface: 'include',
+        systemAudio: 'include'
       });
 
       recordingStreamRef.current = stream;

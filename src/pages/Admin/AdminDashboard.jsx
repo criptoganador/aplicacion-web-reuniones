@@ -427,6 +427,7 @@ Esto borrará permanentemente todas sus reuniones, archivos y membresías. Esta 
             <Shield size={20} />
             <span>Auditoría</span>
           </button>
+{/* 
           <button 
             className={`admin-tab ${currentTab === 'subscription' ? 'active' : ''}`}
             onClick={() => setCurrentTab('subscription')}
@@ -434,6 +435,7 @@ Esto borrará permanentemente todas sus reuniones, archivos y membresías. Esta 
             <CreditCard size={20} />
             <span>Suscripción</span>
           </button>
+          */}
         </div>
 
       {/* Stats Cards - Only show if NOT in profile, audit or subscription tab */}
@@ -478,8 +480,8 @@ Esto borrará permanentemente todas sus reuniones, archivos y membresías. Esta 
       {/* Audit Logs View */}
       {currentTab === 'audit' && <AuditLogs />}
 
-      {/* Subscription View */}
-      {currentTab === 'subscription' && <SubscriptionPanel stats={stats} refreshStats={fetchData} />}
+      {/* Subscription View (Deactivated) */}
+      {/* currentTab === 'subscription' && <SubscriptionPanel stats={stats} refreshStats={fetchData} /> */}
 
       {/* Users View */}
       {currentTab === 'users' && (

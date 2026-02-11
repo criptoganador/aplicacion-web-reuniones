@@ -143,6 +143,7 @@ const joinSchema = Joi.object({
 });
 
 const app = express();
+app.set("trust proxy", 1);
 
 // 1. Inicializar Base de Datos
 import { pool, initDB } from "./db.js";
@@ -648,7 +649,7 @@ app.post("/meetings/join", async (req, res) => {
 // ===========================
 
 // 🔹 Registro CON BCRYPT Y JWT
-app.post("/auth/register", registerLimiter, async (req, res) => {
+app.post("/auth/register", async (req, res) => {
   try {
     // 1. Validar con Joi
     const { error, value } = registerSchema.validate(req.body);
@@ -658,7 +659,10 @@ app.post("/auth/register", registerLimiter, async (req, res) => {
         .json({ success: false, error: error.details[0].message });
     }
 
-    const { name, email, password, role, orgName, joinCode } = value;
+    let { name, email, password, role, orgName, joinCode } = value;
+
+    // Normalizar email
+    email = email.trim().toLowerCase();
 
     // 4. Verificar si el email ya existe
     const existingUser = await pool.query(
@@ -1092,7 +1096,7 @@ app.post("/auth/google", async (req, res) => {
 });
 
 // 🔹 Login CON BCRYPT Y JWT
-app.post("/auth/login", loginLimiter, async (req, res) => {
+app.post("/auth/login", async (req, res) => {
   try {
     // 1. Validar con Joi
     const { error, value } = loginSchema.validate(req.body);
@@ -1102,7 +1106,10 @@ app.post("/auth/login", loginLimiter, async (req, res) => {
         .json({ success: false, error: error.details[0].message });
     }
 
-    const { email, password } = value;
+    let { email, password } = value;
+
+    // Normalizar email
+    email = email.trim().toLowerCase();
 
     // 2. Buscar usuario con datos de su organización actual
     const result = await pool.query(
@@ -1155,14 +1162,11 @@ app.post("/auth/login", loginLimiter, async (req, res) => {
 
 // 🔹 Renovar Access Token
 app.post("/auth/refresh", async (req, res) => {
-  console.log("🔄 [AUTH] Refresh token requested");
   try {
     // 1. Obtener refresh token de la cookie
     const refreshToken = req.cookies.refreshToken;
-    console.log("🍪 [AUTH] Refresh token cookie present:", !!refreshToken);
 
     if (!refreshToken) {
-      console.warn("⚠️ [AUTH] No refresh token found in cookies");
       return res.json({
         success: false,
         error: "No hay sesión activa",
@@ -1170,9 +1174,7 @@ app.post("/auth/refresh", async (req, res) => {
     }
 
     // 2. Verificar refresh token
-    console.log("🔍 [AUTH] Verifying refresh token...");
     const decoded = verifyRefreshToken(refreshToken);
-    console.log("✅ [AUTH] Refresh token valid for user:", decoded.userId);
 
     // 3. Buscar usuario en BD con datos de organización
     const result = await pool.query(
@@ -1203,11 +1205,10 @@ app.post("/auth/refresh", async (req, res) => {
       user,
     });
   } catch (err) {
-    console.error("❌ [AUTH] Error en refresh:", err);
+    console.error("Error en refresh:", err.message);
     res.json({
       success: false,
       error: "Sesión expirada o inválida",
-      details: err.message,
     });
   }
 });
@@ -2294,9 +2295,12 @@ app.post(
           .json({ success: false, error: "El slug ya está en uso" });
       }
 
+      // 🔑 Generar código de invitación único
+      const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
       const result = await pool.query(
-        "INSERT INTO organizations (name, slug, logo_url) VALUES ($1, $2, $3) RETURNING *",
-        [name, slug, logo_url || null],
+        "INSERT INTO organizations (name, slug, logo_url, join_code, owner_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        [name, slug, logo_url || null, joinCode, userId],
       );
 
       const newOrg = result.rows[0];
@@ -3042,7 +3046,7 @@ setInterval(async () => {
       // 🟢 NUEVO: Lógica de tiempo según el tipo
       // Instantáneas: 1 min | Para después (later): 120 min (2 horas)
       // Programadas (scheduled): No se borran hasta 24 horas después de su hora
-      let gracePeriod = 10;
+      let gracePeriod = 1;
 
       if (meetingType === "later") {
         gracePeriod = 120;

@@ -60,20 +60,30 @@ function PreLobby() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      if (meetingId) {
+        formData.append('meeting_id', meetingId);
+      }
       
-      const res = await fetch(`${getApiUrl()}/upload`, {
+      const res = await authFetch('/upload', {
         method: 'POST',
         body: formData
       });
       
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Error al subir la imagen');
+      }
+
       const data = await res.json();
       if (data.secure_url) {
         setAvatarUrl(data.secure_url);
         toast.success('¡Avatar actualizado!');
+      } else {
+        throw new Error('No se recibió la URL de la imagen');
       }
     } catch (err) {
       console.error('Error uploading avatar:', err);
-      toast.error('Error al subir avatar');
+      toast.error(err.message || 'Error al subir avatar');
     } finally {
       setIsUploadingAvatar(false);
     }
