@@ -143,6 +143,7 @@ const joinSchema = Joi.object({
 });
 
 const app = express();
+app.set("trust proxy", 1);
 
 // 1. Inicializar Base de Datos
 import { pool, initDB } from "./db.js";
@@ -648,7 +649,7 @@ app.post("/meetings/join", async (req, res) => {
 // ===========================
 
 // 🔹 Registro CON BCRYPT Y JWT
-app.post("/auth/register", registerLimiter, async (req, res) => {
+app.post("/auth/register", async (req, res) => {
   try {
     // 1. Validar con Joi
     const { error, value } = registerSchema.validate(req.body);
@@ -658,7 +659,10 @@ app.post("/auth/register", registerLimiter, async (req, res) => {
         .json({ success: false, error: error.details[0].message });
     }
 
-    const { name, email, password, role, orgName, joinCode } = value;
+    let { name, email, password, role, orgName, joinCode } = value;
+
+    // Normalizar email
+    email = email.trim().toLowerCase();
 
     // 4. Verificar si el email ya existe
     const existingUser = await pool.query(
@@ -1092,7 +1096,7 @@ app.post("/auth/google", async (req, res) => {
 });
 
 // 🔹 Login CON BCRYPT Y JWT
-app.post("/auth/login", loginLimiter, async (req, res) => {
+app.post("/auth/login", async (req, res) => {
   try {
     // 1. Validar con Joi
     const { error, value } = loginSchema.validate(req.body);
@@ -1102,7 +1106,10 @@ app.post("/auth/login", loginLimiter, async (req, res) => {
         .json({ success: false, error: error.details[0].message });
     }
 
-    const { email, password } = value;
+    let { email, password } = value;
+
+    // Normalizar email
+    email = email.trim().toLowerCase();
 
     // 2. Buscar usuario con datos de su organización actual
     const result = await pool.query(
