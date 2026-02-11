@@ -80,7 +80,6 @@
           ]
         }
       ],
-      "icon": "public/favicon.png",
       "verifyUpdateCodeSignature": false,
       "forceCodeSigning": false
     },
@@ -90,8 +89,6 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "ASICME Meet",
-      "installerIcon": "public/favicon.png",
-      "uninstallerIcon": "public/favicon.png",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   },

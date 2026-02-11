@@ -45,7 +45,7 @@ function Header({ showUserMenu = true }) {
   const fetchNotifications = async () => {
     if (!isAuthenticated) return;
     try {
-      const res = await authFetch('/notifications');
+      const res = await authFetch('/api/notifications');
       const data = await res.json();
       if (data.success) {
         setNotifications(data.notifications);
@@ -67,7 +67,7 @@ function Header({ showUserMenu = true }) {
   const handleNotificationClick = async (notif) => {
     try {
       if (!notif.is_read) {
-        await authFetch(`/notifications/${notif.id}/read`, {
+        await authFetch(`/api/notifications/${notif.id}/read`, {
           method: 'PUT'
         });
         setUnreadCount(prev => Math.max(0, prev - 1));
@@ -82,7 +82,7 @@ function Header({ showUserMenu = true }) {
 
   const markAllRead = async () => {
     try {
-      await authFetch('/notifications/read-all', {
+      await authFetch('/api/notifications/read-all', {
         method: 'PUT'
       });
       setUnreadCount(0);
