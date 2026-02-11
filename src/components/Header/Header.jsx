@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Video, Settings, User, ChevronDown, Sun, Moon, LogOut, Trash2, Shield,
-  Leaf, Zap, Snowflake, Grid
+  Leaf, Zap, Snowflake, Grid, Plus, Building
 } from 'lucide-react';
 import { useTheme } from '../../context';
 import { useAuth } from '../../context/AuthContext';
@@ -11,9 +11,14 @@ import './Header.css';
 
 function Header({ showUserMenu = true }) {
   const { theme, setTheme } = useTheme();
-  const { user, isAuthenticated, logout, deleteAccount } = useAuth();
+  const { 
+    user, isAuthenticated, logout, deleteAccount, 
+    memberships, switchOrganization, createOrganization 
+  } = useAuth();
   const navigate = useNavigate();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showOrgSwitcher, setShowOrgSwitcher] = useState(false);
 
   const themes = [
     { id: 'azure', name: 'Azure Nebula', icon: Zap, color: '#00f2fe' },
@@ -27,12 +32,20 @@ function Header({ showUserMenu = true }) {
 
   const currentTheme = themes.find(t => t.id === theme) || themes[0];
   const themeMenuRef = useRef(null);
+  const userMenuRef = useRef(null);
+  const orgSwitcherRef = useRef(null);
 
-  // Close theme menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (themeMenuRef.current && !themeMenuRef.current.contains(event.target)) {
         setShowThemeMenu(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserDropdown(false);
+      }
+      if (orgSwitcherRef.current && !orgSwitcherRef.current.contains(event.target)) {
+        setShowOrgSwitcher(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -42,6 +55,8 @@ function Header({ showUserMenu = true }) {
   const handleUserClick = () => {
     if (!isAuthenticated) {
       navigate('/login');
+    } else {
+      setShowUserDropdown(!showUserDropdown);
     }
   };
 
@@ -62,6 +77,51 @@ function Header({ showUserMenu = true }) {
     }
   };
 
+  const handleSwitchOrg = async (orgId) => {
+    if (orgId === user.organization_id) return;
+    
+    // Obtener nombres de las organizaciones
+    const currentOrg = memberships?.find(m => m.id === user.organization_id);
+    const targetOrg = memberships?.find(m => m.id === orgId);
+    
+    // Confirmación con nombres de organizaciones
+    const confirmMessage = `¿Está seguro de cambiar de organización?\n\nDe: ${currentOrg?.name || 'Actual'}\nA: ${targetOrg?.name || 'Nueva'}`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return; // Usuario canceló
+    }
+    
+    toast.loading('Cambiando de organización...');
+    const result = await switchOrganization(orgId);
+    if (result.success) {
+      toast.dismiss();
+      toast.success(`Cambiado a: ${targetOrg?.name}`);
+      setShowUserDropdown(false);
+      navigate('/');
+    } else {
+      toast.dismiss();
+      toast.error(result.error);
+    }
+  };
+
+  const handleCreateOrg = () => {
+    const name = window.prompt('Nombre de la nueva organización:');
+    if (!name) return;
+    
+    const slug = name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+    
+    toast.promise(createOrganization({ name, slug }), {
+      loading: 'Creando organización...',
+      success: (data) => {
+        if (data.success) {
+          return `Organización "${name}" creada con éxito`;
+        }
+        throw new Error(data.error);
+      },
+      error: (err) => err.message
+    });
+  };
+
   return (
     <header className="header">
       <div className="header-left">
@@ -70,6 +130,57 @@ function Header({ showUserMenu = true }) {
           <span className="header-logo-text">ASICME</span>
           <span className="header-logo-subtitle">Meet</span>
         </a>
+
+        {isAuthenticated && user && (
+          <div className="header-org-switcher" ref={orgSwitcherRef}>
+            <button 
+              className={`org-switcher-btn ${showOrgSwitcher ? 'active' : ''}`}
+              onClick={() => setShowOrgSwitcher(!showOrgSwitcher)}
+            >
+              <div className="org-btn-icon">
+                {user.organization_logo_url ? (
+                  <img src={user.organization_logo_url} alt="" />
+                ) : (
+                  <Building size={16} />
+                )}
+              </div>
+              <div className="org-btn-info">
+                <span className="org-btn-label">Organización</span>
+                <span className="org-btn-name">{user.organization_name || 'Personal'}</span>
+              </div>
+              <ChevronDown size={14} className={`org-chevron ${showOrgSwitcher ? 'rotate' : ''}`} />
+            </button>
+
+            {showOrgSwitcher && memberships && memberships.length > 0 && (
+              <div className="org-switcher-dropdown glass-panel show">
+                <div className="org-dropdown-header">
+                  <p>Tus Organizaciones</p>
+                </div>
+                <div className="org-dropdown-list">
+                  {memberships.map((org) => (
+                    <button 
+                      key={org.id} 
+                      className={`org-dropdown-item ${user.organization_id === org.id ? 'current' : ''}`}
+                      onClick={() => {
+                        handleSwitchOrg(org.id);
+                        setShowOrgSwitcher(false);
+                      }}
+                    >
+                      <div className="org-item-icon">
+                        {org.logo_url ? <img src={org.logo_url} alt="" /> : <Building size={14} />}
+                      </div>
+                      <div className="org-item-text">
+                        <span className="org-item-name">{org.name}</span>
+                        <span className="org-item-role">{org.role === 'admin' ? 'Administrador' : 'Miembro'}</span>
+                      </div>
+                      {user.organization_id === org.id && <div className="current-indicator">Actual</div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
       {showUserMenu && (
@@ -123,9 +234,9 @@ function Header({ showUserMenu = true }) {
             })}
           </div>
           
-          <div className="header-user-container">
+          <div className="header-user-container" ref={userMenuRef}>
             <button 
-              className={`header-user-btn ${isAuthenticated ? 'active' : ''}`}
+              className={`header-user-btn ${isAuthenticated ? 'active' : ''} ${showUserDropdown ? 'dropdown-open' : ''}`}
               onClick={handleUserClick}
             >
               <div className="header-avatar-wrapper">
@@ -145,11 +256,11 @@ function Header({ showUserMenu = true }) {
               {isAuthenticated && user?.name && (
                 <span className="header-user-name">{user.name}</span>
               )}
-              <ChevronDown size={16} className="header-chevron" />
+              <ChevronDown size={16} className={`header-chevron ${showUserDropdown ? 'rotate' : ''}`} />
             </button>
 
-            {isAuthenticated && (
-              <div className="header-user-dropdown glass-panel">
+            {isAuthenticated && showUserDropdown && (
+              <div className="header-user-dropdown glass-panel show">
                 <div className="dropdown-profile-header">
                   <div className="dropdown-avatar-large">
                     {user?.avatar_url ? (
@@ -166,6 +277,34 @@ function Header({ showUserMenu = true }) {
                       </span>
                     </div>
                     <p className="user-email">{user?.email || ''}</p>
+                  </div>
+                </div>
+                
+                <div className="dropdown-divider"></div>
+
+                {/* --- SECCIÓN DE ORGANIZACIONES --- */}
+                <div className="dropdown-section">
+                  <p className="section-title">Cambiar Organización</p>
+                  <div className="org-list">
+                    {memberships.map((org) => (
+                      <button 
+                        key={org.id} 
+                        className={`org-item ${user?.organization_id === org.id ? 'active' : ''}`}
+                        onClick={() => handleSwitchOrg(org.id)}
+                      >
+                        <div className="org-icon">
+                          {org.logo_url ? <img src={org.logo_url} alt="" /> : <Building size={14} />}
+                        </div>
+                        <span className="org-name">{org.name}</span>
+                        {user?.organization_id === org.id && <div className="active-dot"></div>}
+                      </button>
+                    ))}
+                    {user?.role === 'admin' && (
+                      <button className="org-item add-org" onClick={handleCreateOrg}>
+                        <div className="org-icon"><Plus size={14} /></div>
+                        <span className="org-name">Nueva Organización</span>
+                      </button>
+                    )}
                   </div>
                 </div>
                 

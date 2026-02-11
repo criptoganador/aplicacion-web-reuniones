@@ -87,6 +87,24 @@ export const initDB = async () => {
         filename TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        action TEXT NOT NULL,
+        details TEXT,
+        ip_address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS user_organizations (
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        organization_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+        role TEXT DEFAULT 'user',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, organization_id)
+      );
     `);
 
     // 2. ✨ MIGRACIONES DINÁMICAS (Para bases ya existentes)
@@ -127,10 +145,64 @@ export const initDB = async () => {
         END IF;
       END $$;
 
+      -- Asegurar description en organizations
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='description') THEN
+          ALTER TABLE organizations ADD COLUMN description TEXT;
+        END IF;
+      END $$;
+
+      -- Asegurar website en organizations
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='website') THEN
+          ALTER TABLE organizations ADD COLUMN website TEXT;
+        END IF;
+      END $$;
+
+      -- Asegurar website en organizations
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='website') THEN
+          ALTER TABLE organizations ADD COLUMN website TEXT;
+        END IF;
+      END $$;
+
+      -- Asegurar owner_id en organizations
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='owner_id') THEN
+          ALTER TABLE organizations ADD COLUMN owner_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+        END IF;
+      END $$;
+
+      -- Migración de datos a user_organizations
+      DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_organizations') THEN
+          INSERT INTO user_organizations (user_id, organization_id, role)
+          SELECT id, organization_id, role FROM users
+          WHERE organization_id IS NOT NULL
+          ON CONFLICT DO NOTHING;
+        END IF;
+      END $$;
+
       -- Asegurar organización por defecto
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM organizations WHERE slug = 'asicme-global') THEN
           INSERT INTO organizations (name, slug, join_code) VALUES ('ASICME Global', 'asicme-global', 'GLOBAL');
+        END IF;
+      END $$;
+
+      -- 💳 MIGRACIÓN SAAS / STRIPE
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='plan') THEN
+          ALTER TABLE organizations ADD COLUMN plan TEXT DEFAULT 'free';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='stripe_customer_id') THEN
+          ALTER TABLE organizations ADD COLUMN stripe_customer_id TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='stripe_subscription_id') THEN
+          ALTER TABLE organizations ADD COLUMN stripe_subscription_id TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='subscription_status') THEN
+          ALTER TABLE organizations ADD COLUMN subscription_status TEXT DEFAULT 'active';
         END IF;
       END $$;
     `);

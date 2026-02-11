@@ -61,6 +61,22 @@
   -webkit-text-fill-color: transparent;
 }
 
+@media (max-width: 768px) {
+  .header-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .header-title h1 {
+    font-size: 1.8rem;
+  }
+  
+  .header-subtitle {
+    font-size: 0.95rem;
+  }
+}
+
 .admin-icon {
   color: var(--color-primary-light);
   filter: drop-shadow(0 0 10px rgba(66, 133, 244, 0.4));
@@ -100,6 +116,38 @@
 }
 
 /* 🏢 Org Info Card Refined */
+@media (max-width: 768px) {
+  .org-info-card {
+    padding: 20px;
+    flex-direction: column;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  
+  .org-icon-container {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .org-text h3 {
+    font-size: 1.1rem;
+  }
+  
+  .org-text p {
+    font-size: 0.9rem;
+  }
+  
+  .org-code-container {
+    width: 100%;
+    text-align: left;
+  }
+  
+  .code-value {
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+  }
+}
+
 .org-info-card {
   margin-bottom: 40px;
   padding: 32px;
@@ -184,6 +232,33 @@
   margin-bottom: 40px;
   position: relative;
   z-index: 10;
+}
+
+@media (max-width: 1024px) {
+  .admin-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .stat-card {
+    padding: 24px;
+    gap: 16px;
+  }
+  
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .stat-value {
+    font-size: 2rem;
+  }
 }
 
 .stat-card {
@@ -314,6 +389,21 @@
   gap: 20px;
 }
 
+@media (max-width: 768px) {
+  .admin-content-section {
+    padding: 20px;
+  }
+  
+  .table-controls {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .filter-box, .filter-box select {
+    width: 100%;
+  }
+}
+
 .search-box {
   flex: 1;
   background: rgba(255, 255, 255, 0.03);
@@ -350,8 +440,16 @@
   font-weight: var(--font-medium);
 }
 
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 12px;
+}
+
 .admin-table {
   width: 100%;
+  min-width: 800px;
   border-collapse: separate;
   border-spacing: 0 8px;
 }
@@ -467,6 +565,12 @@
   color: #ff5252;
 }
 
+.btn-action.transfer:hover {
+  background: rgba(138, 43, 226, 0.2);
+  border-color: #8a2be2;
+  color: #a855f7;
+}
+
 /* Modals */
 .modal-content {
   background: rgba(15, 23, 30, 0.95) !important;
@@ -480,6 +584,18 @@
   font-family: var(--font-primary);
   font-weight: var(--font-extra-bold);
   color: white;
+}
+
+@media (max-width: 640px) {
+  .modal-content {
+    padding: 24px !important;
+    border-radius: 20px !important;
+    width: 95% !important;
+  }
+  
+  .modal-header h2 {
+    font-size: 1.4rem;
+  }
 }
 
 /* Loading */

@@ -119,10 +119,9 @@ function VerifyEmail() {
                 <input
                   type="text"
                   maxLength="6"
-                  placeholder="000000"
+                  className="otp-input"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  style={{ textAlign: 'center', fontSize: '24px', letterSpacing: '4px' }}
                 />
               </div>
             </div>

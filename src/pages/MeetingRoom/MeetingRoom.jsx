@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify';
 import { 
   Copy, Check, PhoneOff, Users, MessageSquare, X, Send, Paperclip, FileText, ExternalLink, Smile, Download, Bold, Italic, Palette, Underline as UnderlineIcon,
   Volume2, VolumeX, CornerUpLeft, ArrowDown, CheckCheck, Crown, Shield, Maximize2, Minimize2,
-  Type, Hand, Mic, MicOff, Video, VideoOff
+  Type, Hand, Mic, MicOff, Video, VideoOff, Circle, Square
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -102,6 +102,16 @@ function MeetingRoom() {
           audio={isMicOn}
           token={token} // Use original token, don't clear it reactively here
           serverUrl={LIVEKIT_URL}
+          connectOptions={{
+            autoSubscribe: true,
+            publishDefaults: {
+              dtlsRetries: 10,
+              // @ts-ignore
+              publishTimeout: 30000, // Aumentado a 30s para mitigar timeouts de publicación
+            },
+            adaptiveStream: true,
+            dynacast: true,
+          }}
           data-lk-theme="default"
           style={{ height: "100vh" }}
           onDisconnected={onDisconnected}
@@ -195,12 +205,121 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
   const [activeCaptions, setActiveCaptions] = useState({});
+  const [isRecording, setIsRecording] = useState(false);
   
   const recognitionRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const recordingStreamRef = useRef(null);
   const { chatMessages, send } = useChat();
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
   
+  // --- RECORDING LOGIC ---
+  const startRecording = async () => {
+    try {
+      // 1. Capture stream with system audio
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          cursor: "always",
+          displaySurface: "browser"
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100,
+        }
+      });
+
+      recordingStreamRef.current = stream;
+      chunksRef.current = [];
+
+      // 2. Setup MediaRecorder
+      const options = { mimeType: 'video/webm;codecs=vp9,opus' };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options.mimeType = 'video/webm';
+      }
+
+      const recorder = new MediaRecorder(stream, options);
+      
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        await saveRecording(blob);
+        // Clean up stream tracks
+        stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
+      };
+
+      recorderRef.current = recorder;
+      recorder.start(1000); // Save chunks every second
+      setIsRecording(true);
+      toast.success("Grabación iniciada. Asegúrate de compartir el audio de la pestaña.");
+      
+      // Stop recording if the user stops sharing via browser UI
+      stream.getVideoTracks()[0].onended = () => {
+        if (recorderRef.current?.state === 'recording') {
+          recorderRef.current.stop();
+        }
+      };
+
+    } catch (err) {
+      if (err.name !== 'NotAllowedError') {
+        console.error("Error starting recording:", err);
+        toast.error("No se pudo iniciar la grabación: " + err.message);
+      }
+    }
+  };
+
+  const stopRecording = () => {
+    if (recorderRef.current && recorderRef.current.state === 'recording') {
+      recorderRef.current.stop();
+    }
+  };
+
+  const saveRecording = async (blob) => {
+    try {
+      // Check if File System Access API is supported
+      if ('showSaveFilePicker' in window) {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: `reunion-${meetingId}-${new Date().toISOString().slice(0,10)}.webm`,
+          types: [{
+            description: 'Video WebM',
+            accept: { 'video/webm': ['.webm'] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        toast.success("Grabación guardada correctamente");
+      } else {
+        // Fallback for older browsers
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `reunion-${meetingId}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+        toast.success("Descarga de grabación iniciada");
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error("Error saving recording:", err);
+        toast.error("Error al guardar la grabación");
+      }
+    }
+  };
+
   const handleEndMeeting = async () => {
     if (!window.confirm("¿Estás seguro de que quieres finalizar la reunión para todos?")) {
       return;
@@ -668,6 +787,16 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
             title="Participantes"
           >
             <Users size={20} />
+          </button>
+        )}
+        {isHost && (
+          <button 
+            className={`lk-button control-btn-record ${isRecording ? 'active' : ''}`}
+            onClick={isRecording ? stopRecording : startRecording}
+            title={isRecording ? "Detener grabación" : "Grabar reunión"}
+          >
+            {isRecording ? <Square size={20} fill="#ef4444" color="#ef4444" /> : <Circle size={20} />}
+            {isRecording && <span className="recording-dot-pulser"></span>}
           </button>
         )}
         <button 

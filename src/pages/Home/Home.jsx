@@ -12,7 +12,7 @@ import { getApiUrl } from '../../context/AuthContext';
 
 function Home() {
   const navigate = useNavigate();
-  const { accessToken, user, authFetch } = useAuth();
+  const { accessToken, user, authFetch, memberships } = useAuth();
   const [meetingCode, setMeetingCode] = useState('');
   const [showNewMeetingMenu, setShowNewMeetingMenu] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -48,23 +48,23 @@ function Home() {
     setIsAuthenticated(!!accessToken);
   }, [accessToken]);
 
-  // 🔄 Agente de Monitoreo: Actualización en tiempo real para el Dashboard Integrado
+  // 🔄 Refresh meetings when organization changes
   useEffect(() => {
-    let interval;
-    if (isAuthenticated) {
-      // Primera carga inmediata
+    if (isAuthenticated && user?.organization_id) {
       fetchMeetings();
-      
-      // Configurar el agente (cada 10 segundos para no saturar)
-      interval = setInterval(() => {
-        fetchMeetings(true);
-      }, 10000);
     }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isAuthenticated]);
+  }, [user?.organization_id, isAuthenticated]);
+
+  // ⏱️ Polling: Refresh live meetings every 10 seconds
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const intervalId = setInterval(() => {
+      fetchMeetings(true); // Pass true to avoid showing full loader
+    }, 10000);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, user?.organization_id]);
 
   // 🖱️ Lógica de Parallax para el Hero
   const handleMouseMove = (e) => {
@@ -260,6 +260,22 @@ function Home() {
                 para tu empresa. Comunicación en tiempo real sin complicaciones.
               </p>
               
+              {/* 🏢 Indicador de Organización Activa */}
+              {user && memberships && memberships.length > 0 && (
+                <div className="active-org-badge">
+                  <div className="org-avatar">
+                    {memberships.find(m => m.id === user.organization_id)?.name?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                  <div className="org-info">
+                    <div className="org-label">Organización activa</div>
+                    <div className="org-name">
+                      {memberships.find(m => m.id === user.organization_id)?.name || 'Cargando...'}
+                    </div>
+                    <div className="org-hint">Las reuniones se crearán en esta organización</div>
+                  </div>
+                </div>
+              )}
+
               <div className="home-actions">
                 <div className="home-new-meeting">
                   <Button 
@@ -359,7 +375,7 @@ function Home() {
                 <div className="status-live-indicator">
                   <span className="dot"></span>
                 </div>
-                <h2>Actividad en Tiempo Real</h2>
+                <h2>Reuniones en: {memberships?.find(m => m.id === user.organization_id)?.name || "Cargando..."}</h2>
                 <div className="refresh-status">Actualizado ahora</div>
               </div>
 
@@ -537,7 +553,12 @@ function Home() {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h2>Programar nueva reunión</h2>
+              <div>
+                <h2>Programar nueva reunión</h2>
+                <p style={{ fontSize: '13px', color: '#1a73e8', margin: '4px 0 0 0', fontWeight: '500' }}>
+                  Organización: {memberships?.find(m => m.id === user.organization_id)?.name}
+                </p>
+              </div>
               <button className="modal-close-icon" onClick={() => setShowScheduleModal(false)}>×</button>
             </div>
             <form onSubmit={crearProgramada}>

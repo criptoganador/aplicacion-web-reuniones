@@ -251,6 +251,12 @@ body {
   overflow: hidden; /* Evitar scrollbars dobles */
 }
 
+@media (max-width: 768px) {
+  body {
+    overflow: auto; /* Permitir scroll en móviles si el contenido lo requiere */
+  }
+}
+
 #root {
   height: 100vh;
   display: flex;
@@ -283,7 +289,7 @@ input,
 textarea,
 select {
   font-family: inherit;
-  font-size: inherit;
+  font-size: 16px; /* Prevents auto-zoom on iOS */
 }
 
 img,
@@ -318,6 +324,28 @@ ol {
 .text-muted { color: var(--text-secondary); }
 .w-full { width: 100%; }
 .h-full { height: 100%; }
+
+/* Responsive Utilities */
+.hide-mobile {
+  display: flex;
+}
+
+.show-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+  .show-mobile {
+    display: flex !important;
+  }
+  
+  .flex-mobile-col {
+    flex-direction: column !important;
+  }
+}
 
 /* ========== Scrollbar Styling ========== */
 ::-webkit-scrollbar {

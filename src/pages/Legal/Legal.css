@@ -145,7 +145,19 @@
 }
 
 @media (max-width: 768px) {
+  .legal-header {
+    padding: 40px 20px;
+  }
+  
   .legal-header h1 {
     font-size: 2rem;
+  }
+  
+  .legal-content {
+    padding: 30px 20px;
+  }
+  
+  .legal-content h2 {
+    font-size: 1.3rem;
   }
 }

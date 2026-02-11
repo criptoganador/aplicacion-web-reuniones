@@ -65,6 +65,7 @@ function Login() {
             </div>
           )}
 
+
           <form className="auth-form" onSubmit={handleSubmit}>
             {/* Email Field with Floating Label */}
             <div className={`input-group floating ${email || focusedField === 'email' ? 'has-value' : ''}`}>
@@ -108,7 +109,7 @@ function Login() {
                   tabIndex={-1}
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
               <div className="forgot-password-link">

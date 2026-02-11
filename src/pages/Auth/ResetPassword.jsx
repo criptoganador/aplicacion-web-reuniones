@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Lock, ArrowLeft, Loader2, KeyRound } from 'lucide-react';
+import { Lock, ArrowLeft, Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
@@ -13,6 +13,8 @@ function ResetPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { resetPassword } = useAuth();
   const navigate = useNavigate();
 
@@ -66,33 +68,51 @@ function ResetPassword() {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
+          <div className="input-group">
             <label htmlFor="newPassword">Nueva contraseña</label>
-            <div className="input-with-icon">
-              <Lock size={18} />
+            <div className="input-field glass-input">
+              <Lock size={18} className="input-icon" />
               <input
                 id="newPassword"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Mínimo 8 caracteres"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
               />
+              <button 
+                type="button" 
+                className="password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
           </div>
 
-          <div className="form-group">
+          <div className="input-group">
             <label htmlFor="confirmPassword">Confirmar contraseña</label>
-            <div className="input-with-icon">
-              <Lock size={18} />
+            <div className="input-field glass-input">
+              <Lock size={18} className="input-icon" />
               <input
                 id="confirmPassword"
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Repite tu contraseña"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
               />
+              <button 
+                type="button" 
+                className="password-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              >
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
             </div>
           </div>
 

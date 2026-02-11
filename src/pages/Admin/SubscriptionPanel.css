@@ -1,0 +1,182 @@
+.subscription-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.current-plan-card {
+    padding: 30px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.plan-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.plan-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plan-details h2 {
+    font-size: 1.5rem;
+    margin: 0 0 5px 0;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background: rgba(52, 211, 153, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.usage-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.usage-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 0.95rem;
+}
+
+.usage-item .label {
+    min-width: 80px;
+    color: #a0aec0;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+}
+
+.usage-item .value {
+    min-width: 60px;
+    text-align: right;
+    font-weight: 600;
+}
+
+/* Pricing Grid */
+.upgrade-section h3 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #fff;
+}
+
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.pricing-card {
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.pricing-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(118, 75, 162, 0.3);
+}
+
+.pro-card {
+    background: linear-gradient(135deg, rgba(118, 75, 162, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
+    border: 1px solid rgba(118, 75, 162, 0.3);
+}
+
+.card-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 12px rgba(118, 75, 162, 0.4);
+}
+
+.price {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 15px 0 25px;
+    color: #fff;
+}
+
+.price span {
+    font-size: 1rem;
+    color: #a0aec0;
+    font-weight: 400;
+}
+
+.features-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 30px 0;
+    text-align: left;
+}
+
+.features-list li {
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e2e8f0;
+    font-size: 0.95rem;
+}
+
+.check-icon {
+    color: #34d399;
+}
+
+.pricing-card.disabled {
+    opacity: 0.7;
+    filter: grayscale(1);
+    pointer-events: none;
+}

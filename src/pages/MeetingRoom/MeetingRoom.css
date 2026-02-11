@@ -95,6 +95,20 @@
   flex-direction: column;
 }
 
+@media (max-width: 768px) {
+  .participants-panel {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    border-radius: 0;
+    z-index: 2000;
+  }
+}
+
 .participants-header {
   padding: 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -254,6 +268,19 @@
   overflow: visible !important; /* Allow resizers to be visible slightly outside if needed */
 }
 
+@media (max-width: 768px) {
+  .custom-chat-container {
+    width: 100% !important;
+    height: 100% !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    border-radius: 0;
+    z-index: 2000;
+  }
+}
+
 .custom-chat-container.dragging {
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
   cursor: grabbing;
@@ -384,6 +411,20 @@
   bottom: 10px;
   right: 365px; 
   pointer-events: auto;
+}
+
+@media (max-width: 1024px) {
+  .meeting-actions-right {
+    right: 24px;
+    bottom: 100px;
+  }
+}
+
+@media (max-width: 768px) {
+  .meeting-actions-right {
+    right: 16px;
+    bottom: 90px;
+  }
 }
 
 .end-meeting-btn {
@@ -2363,3 +2404,110 @@
   color: rgba(255, 255, 255, 0.2);
   font-size: 12px;
 }
+/* --- MOBILE OVERRIDES PHASE 2 --- */
+@media (max-width: 600px) {
+  /* Fix Emoji Picker on Mobile */
+  .emoji-picker-container {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 350px !important;
+    margin-bottom: 0 !important;
+    border-radius: 20px 20px 0 0 !important;
+    z-index: 5000;
+  }
+  
+  .EmojiPickerReact {
+    width: 100% !important;
+    height: 100% !important;
+    --epr-picker-border-radius: 0 !important;
+  }
+
+  /* Live Captions scaling */
+  .live-captions-container {
+    width: 95%;
+    bottom: 100px;
+  }
+  
+  .caption-text {
+    font-size: 14px;
+  }
+
+  /* Meeting Ended Screen scaling */
+  .ended-card {
+    padding: 30px 20px;
+    width: 90%;
+    border-radius: 24px;
+  }
+  
+  .ended-title {
+    font-size: 24px;
+  }
+  
+  .ended-stats {
+    gap: 15px;
+    padding: 16px;
+  }
+  
+  .stat-value {
+    font-size: 16px;
+  }
+
+  /* Hide pill info on mobile control bar to maximize space */
+  .meeting-info-pill-docked {
+    display: none !important;
+  }
+  
+  .custom-control-bar-wrapper {
+    padding: 0 10px;
+    height: 70px !important;
+  }
+  
+  .custom-control-bar-wrapper .lk-button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 360px) {
+  /* Extreme narrow mobile - reduce scaling further */
+  .custom-control-bar-wrapper {
+    gap: 4px;
+  }
+  
+  .lk-control-bar {
+    gap: 4px;
+  }
+}
+
+/* --- RECORDING BUTTON --- */
+.control-btn-record {
+  position: relative;
+}
+
+.control-btn-record.active {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+}
+
+.recording-dot-pulser {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+  animation: pulse-recording 1.2s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes pulse-recording {
+  0% { transform: scale(1); opacity: 1; filter: brightness(1); }
+  50% { transform: scale(1.3); opacity: 0.6; filter: brightness(1.5); }
+  100% { transform: scale(1); opacity: 1; filter: brightness(1); }
+}
+

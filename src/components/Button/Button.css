@@ -88,6 +88,18 @@
   background-color: var(--bg-hover);
 }
 
+.btn-outline {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--color-primary);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
 .btn-danger {
   background-color: var(--btn-danger);
   color: var(--text-on-primary);

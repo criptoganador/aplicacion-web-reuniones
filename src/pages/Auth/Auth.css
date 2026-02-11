@@ -9,7 +9,7 @@
   justify-content: center;
   position: relative;
   overflow: hidden;
-  padding: 20px;
+  padding: 16px;
 }
 
 /* ========== Animated Background Orbs ========== */
@@ -82,7 +82,7 @@
     0 25px 50px -12px rgba(0, 0, 0, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   border-radius: 24px;
-  padding: 48px;
+  padding: 32px 24px;
   color: white;
   position: relative;
   overflow: hidden;
@@ -137,7 +137,7 @@
 /* ========== Header & Logo ========== */
 .auth-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .auth-logo {
@@ -297,7 +297,7 @@
 
 .glass-input input {
   width: 100%;
-  padding: 16px 12px;
+  padding: 16px 48px 16px 12px;
   border: none;
   background: transparent;
   font-size: 16px;
@@ -318,29 +318,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
-  transition: all 0.2s ease;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #1a73e8 !important; /* Force brand blue */
+  background: rgba(26, 115, 232, 0.12) !important; /* Force subtle background */
+  border: 1px solid rgba(26, 115, 232, 0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  background: transparent;
-  border: none;
-  z-index: 5;
+  z-index: 20;
 }
 
 .password-toggle:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(26, 115, 232, 0.2) !important;
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 0 12px rgba(26, 115, 232, 0.2);
 }
 
-[data-theme='light'] .password-toggle {
-  color: #9aa0a6;
+.password-toggle:active {
+  transform: translateY(-50%) scale(0.95);
 }
 
-[data-theme='light'] .password-toggle:hover {
-  color: #1a73e8;
-  background: rgba(26, 115, 232, 0.1);
+.password-toggle svg {
+  display: block;
 }
+
+/* Removed redundant light theme overrides for toggle to keep brand blue consistent */
 
 /* ========== Enhanced Login Button ========== */
 .login-btn {
@@ -738,4 +741,19 @@
 .header-icon {
   display: block;
   margin: 0 auto;
+}
+
+/* OTP Input Scaling */
+.otp-input {
+  text-align: center;
+  font-size: 24px !important;
+  letter-spacing: 4px;
+  width: 100%;
+}
+
+@media (max-width: 400px) {
+  .otp-input {
+    font-size: 20px !important;
+    letter-spacing: 2px;
+  }
 }

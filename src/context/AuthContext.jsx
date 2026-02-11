@@ -44,6 +44,7 @@ export { getApiUrl };
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
+  const [memberships, setMemberships] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const refreshAccessToken = useCallback(async () => {
@@ -66,6 +67,17 @@ export function AuthProvider({ children }) {
           const currentUserStr = JSON.stringify(user);
           if (userStr !== currentUserStr) {
             setUser(data.user);
+            // Fetch memberships when user data changes (using fresh token)
+            if (data.accessToken) {
+              fetch(`${getApiUrl()}/auth/memberships`, {
+                headers: { 'Authorization': `Bearer ${data.accessToken}` }
+              })
+              .then(res => res.json())
+              .then(mdata => {
+                if (mdata.success) setMemberships(mdata.memberships);
+              })
+              .catch(err => console.error('Error fetching memberships:', err));
+            }
           }
           
           return true; // Éxito
@@ -78,7 +90,7 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [accessToken, user]);
 
   /**
    * Helper para realizar peticiones autenticadas
@@ -90,8 +102,11 @@ export function AuthProvider({ children }) {
     const headers = {
       ...options.headers,
       'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
     };
+
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     try {
       let response = await fetch(finalUrl, { ...options, headers });
@@ -146,6 +161,7 @@ export function AuthProvider({ children }) {
   }, [user, refreshAccessToken]);
 
   // --- MÉTODOS ---
+
 
   const login = async (email, password) => {
     try {
@@ -205,6 +221,59 @@ export function AuthProvider({ children }) {
 
     setUser(null);
     setAccessToken(null);
+    setMemberships([]);
+  };
+
+  const fetchMemberships = async (token = accessToken) => {
+    if (!token) return;
+    try {
+      const response = await fetch(`${getApiUrl()}/auth/memberships`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setMemberships(data.memberships);
+      }
+    } catch (error) {
+      console.error('Error fetching memberships:', error);
+    }
+  };
+
+  const switchOrganization = async (organizationId) => {
+    try {
+      const response = await authFetch('/auth/switch-org', {
+        method: 'POST',
+        body: JSON.stringify({ organizationId })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setUser(data.user);
+        setAccessToken(data.accessToken);
+        // Refresh memberships to get potential role changes
+        await fetchMemberships(data.accessToken);
+        return { success: true };
+      }
+      return { success: false, error: data.error };
+    } catch (error) {
+      return { success: false, error: 'Error al cambiar de organización' };
+    }
+  };
+
+  const createOrganization = async (orgData) => {
+    try {
+      const response = await authFetch('/admin/organizations', {
+        method: 'POST',
+        body: JSON.stringify(orgData)
+      });
+      const data = await response.json();
+      if (data.success) {
+        await fetchMemberships(); // Actualizar lista
+        return { success: true, organization: data.organization };
+      }
+      return { success: false, error: data.error };
+    } catch (error) {
+      return { success: false, error: 'Error al crear organización' };
+    }
   };
 
   const deleteAccount = async () => {
@@ -314,7 +383,11 @@ export function AuthProvider({ children }) {
       refreshAccessToken,
       authFetch,
       isAuthenticated: !!user, 
-      loading 
+      loading,
+      memberships,
+      fetchMemberships,
+      switchOrganization,
+      createOrganization
     }}>
       {children}
     </AuthContext.Provider>

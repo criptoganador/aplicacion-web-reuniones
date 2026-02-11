@@ -23,31 +23,35 @@ export async function authenticateToken(req, res, next) {
     // 2. Verificar y decodificar token
     const decoded = verifyAccessToken(token);
 
-    // 3. SEGURIDAD: Verificar que el usuario todavía existe en la BD
-    // Esto previene que una sesión siga abierta si el usuario fue eliminado
+    // 3. SEGURIDAD: Verificar que el usuario todavía existe y pertenece a la org especificada
     const userRes = await pool.query(
-      "SELECT id, role, is_verified FROM users WHERE id = $1",
-      [decoded.userId],
+      `SELECT u.id, u.is_verified, o.name as organization_name, uo.role as org_role
+       FROM users u
+       JOIN user_organizations uo ON u.id = uo.user_id
+       JOIN organizations o ON uo.organization_id = o.id
+       WHERE u.id = $1 AND uo.organization_id = $2`,
+      [decoded.userId, decoded.organizationId],
     );
 
     if (userRes.rows.length === 0) {
       console.log(
-        `❌ authenticateToken: Usuario ${decoded.userId} no existe en la BD (posiblemente eliminado).`,
+        `❌ authenticateToken: Usuario ${decoded.userId} no tiene acceso a la Org ${decoded.organizationId} o no existe.`,
       );
       return res.status(401).json({
         success: false,
-        error: "Sesión inválida: el usuario ya no existe",
-        code: "USER_NOT_FOUND",
+        error: "Sesión inválida o sin permisos para esta organización",
+        code: "UNAUTHORIZED_ORG",
       });
     }
 
     const dbUser = userRes.rows[0];
 
-    // 4. Agregar info del usuario al request (usando datos frescos de la BD)
+    // 4. Agregar info del usuario al request (usando datos frescos de la BD y el rol específico de la Org)
     req.user = {
       ...decoded,
-      role: dbUser.role,
+      role: dbUser.org_role,
       is_verified: dbUser.is_verified,
+      organizationName: dbUser.organization_name
     };
 
     console.log(

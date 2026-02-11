@@ -44,7 +44,11 @@ function App() {
             <WindowResizerSimple />
             <TitleBar />
             <div className="app-content" style={{ marginTop: window.electron ? '32px' : '0' }}>
-              <Toaster position="top-right" richColors closeButton />
+              <Toaster 
+                position={window.innerWidth < 640 ? "top-center" : "top-right"} 
+                richColors 
+                closeButton 
+              />
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                 {/* Public Routes */}

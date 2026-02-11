@@ -31,9 +31,16 @@
 
 .pre-lobby-header-actions {
   position: absolute;
-  top: 100px;
-  left: 40px;
+  top: 80px;
+  left: 20px;
   z-index: 100;
+}
+
+@media (max-width: 768px) {
+  .pre-lobby-header-actions {
+    top: 64px;
+    left: 10px;
+  }
 }
 
 /* 🔙 Back to Home Button Premium */
@@ -219,9 +226,21 @@
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
   border-radius: 32px;
-  padding: var(--space-10);
+  padding: var(--space-8);
   box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 768px) {
+  .pre-lobby-card {
+    padding: var(--space-6);
+    border-radius: 20px;
+  }
+  
+  .pre-lobby-card h2 {
+    font-size: 1.8rem;
+    margin-bottom: var(--space-6);
+  }
 }
 
 .pre-lobby-card h2 {

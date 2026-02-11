@@ -16,16 +16,22 @@ import {
   Building,
   Globe,
   Plus,
-  Home
+  Home,
+  Upload,
+  CreditCard,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button';
 import './AdminDashboard.css';
 import { toast } from 'sonner';
+import OrgProfile from './OrgProfile';
+import AuditLogs from './AuditLogs';
+import SubscriptionPanel from './SubscriptionPanel';
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const { user: authUser, authFetch, logout } = useAuth();
+  const { user: authUser, authFetch, logout, memberships, fetchMemberships } = useAuth();
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +45,16 @@ function AdminDashboard() {
   const [newOrgName, setNewOrgName] = useState('');
   const [newOrgSlug, setNewOrgSlug] = useState('');
   const [isCreatingOrg, setIsCreatingOrg] = useState(false);
+
+  // Manage User Orgs specific state
+  const [showManageOrgsModal, setShowManageOrgsModal] = useState(false);
+  const [userToManage, setUserToManage] = useState(null);
+  const [userMemberships, setUserMemberships] = useState([]);
+  const [newOrgId, setNewOrgId] = useState('');
+  const [newOrgRole, setNewOrgRole] = useState('user');
+  const [isProcessingMembership, setIsProcessingMembership] = useState(false);
+  const [loadingMemberships, setLoadingMemberships] = useState(false);
+  
   const dashboardRef = useRef(null);
 
   const handleMouseMove = (e) => {
@@ -57,26 +73,19 @@ function AdminDashboard() {
     try {
       const endpoints = [
         authFetch('/admin/users'),
-        authFetch('/admin/stats')
+        authFetch('/admin/stats'),
+        authFetch('/admin/organizations') // Todos los admins pueden ver sus organizaciones
       ];
-
-      // Solo si es Súper Admin pedimos organizaciones
-      if (authUser?.organization_id === 1) {
-        endpoints.push(authFetch('/admin/organizations'));
-      }
 
       const responses = await Promise.all(endpoints);
       
       const usersData = await responses[0].json();
       const statsData = await responses[1].json();
+      const orgsData = await responses[2].json();
       
       if (usersData.success) setUsers(usersData.users);
       if (statsData.success) setStats(statsData.stats);
-
-      if (authUser?.organization_id === 1 && responses[2]) {
-        const orgsData = await responses[2].json();
-        if (orgsData.success) setOrganizations(orgsData.organizations);
-      }
+      if (orgsData.success) setOrganizations(orgsData.organizations);
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast.error('Error al cargar datos administrativos');
@@ -98,6 +107,7 @@ function AdminDashboard() {
       const data = await res.json();
       if (data.success) {
         toast.success(`Organización "${newOrgName}" creada con éxito`);
+        fetchMemberships(); // Actualizar lista en el switcher
         setShowOrgModal(false);
         setNewOrgName('');
         setNewOrgSlug('');
@@ -109,6 +119,76 @@ function AdminDashboard() {
       toast.error('Error de red al crear organización');
     } finally {
       setIsCreatingOrg(false);
+    }
+  };
+
+  const handleDeleteOrganization = async (org) => {
+    if (org.id === 1) {
+      toast.error('No se puede eliminar la organización global');
+      return;
+    }
+
+    const confirmMsg = `⚠️ ¿Estás COMPLETAMENTE SEGURO de eliminar la organización "${org.name}"? 
+Esto borrará permanentemente todas sus reuniones, archivos y membresías. Esta acción no se puede deshacer.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await authFetch(`/admin/organizations/${org.id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        // Si el admin borró la org en la que estaba actualmente, tenemos que sacarlo de ahí
+        if (org.id === authUser?.organization_id) {
+          toast.info('Redirigiendo a organización principal...');
+          // Intentar volver a la principal (ID 1)
+          const switchRes = await authFetch('/auth/switch-org', {
+            method: 'POST',
+            body: JSON.stringify({ organizationId: 1 })
+          });
+          if (!(await switchRes.json()).success) {
+            logout(); // Si falla, mejor cerrar sesión
+          }
+        }
+        fetchData();
+      } else {
+        toast.error(data.error);
+      }
+    } catch (error) {
+      toast.error('Error al intentar eliminar la organización');
+    }
+  };
+
+  const handleLogoUpload = async (orgId, file) => {
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    const toastId = toast.loading('Subiendo logo...');
+
+    try {
+      const res = await authFetch(`/admin/organizations/${orgId}/logo`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      
+      if (data.success) {
+        toast.dismiss(toastId);
+        toast.success('Logo actualizado');
+        fetchData();
+      } else {
+        toast.dismiss(toastId);
+        toast.error(data.error);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.dismiss(toastId);
+      toast.error('Error al subir la imagen');
     }
   };
 
@@ -162,6 +242,76 @@ function AdminDashboard() {
     }
   };
 
+  const fetchUserMemberships = async (userId) => {
+    setLoadingMemberships(true);
+    try {
+      const res = await authFetch(`/admin/users/${userId}/memberships`);
+      const data = await res.json();
+      if (data.success) {
+        setUserMemberships(data.memberships);
+      }
+    } catch (error) {
+      toast.error('Error al cargar membresías del usuario');
+    } finally {
+      setLoadingMemberships(false);
+    }
+  };
+
+  const handleAddMembership = async () => {
+    if (!userToManage || !newOrgId) return;
+
+    setIsProcessingMembership(true);
+    try {
+      const res = await authFetch(`/admin/users/${userToManage.id}/organizations`, {
+        method: 'POST',
+        body: JSON.stringify({ organizationId: parseInt(newOrgId), role: newOrgRole })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Organización añadida con éxito');
+        setNewOrgId('');
+        fetchUserMemberships(userToManage.id);
+        fetchData(); // Recargar tabla principal para ver cambios de Org ID principal si aplica
+      } else {
+        toast.error(data.error || 'Error al añadir organización');
+      }
+    } catch (error) {
+      toast.error('Error de conexión');
+    } finally {
+      setIsProcessingMembership(false);
+    }
+  };
+
+  const handleRemoveMembership = async (orgId) => {
+    if (!userToManage) return;
+    
+    if (userMemberships.length <= 1) {
+      toast.error('Un usuario debe pertenecer al menos a una organización');
+      return;
+    }
+
+    if (!window.confirm('¿Estás seguro de quitar a este usuario de esta organización?')) return;
+
+    setIsProcessingMembership(true);
+    try {
+      const res = await authFetch(`/admin/users/${userToManage.id}/organizations/${orgId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Membresía eliminada');
+        fetchUserMemberships(userToManage.id);
+        fetchData();
+      } else {
+        toast.error(data.error || 'Error al eliminar membresía');
+      }
+    } catch (error) {
+      toast.error('Error de conexión');
+    } finally {
+      setIsProcessingMembership(false);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -192,20 +342,30 @@ function AdminDashboard() {
             <Shield size={28} className="admin-icon" />
             <h1>Panel de Administración</h1>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => navigate('/')}
-            icon={Home}
-            className="btn-back-home"
-          >
-            Volver al Inicio
-          </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/')}
+              icon={Home}
+              className="btn-back-home"
+            >
+              Volver al Inicio
+            </Button>
+            <Button 
+              variant="primary" 
+              size="sm" 
+              onClick={() => setShowOrgModal(true)}
+              icon={Plus}
+              className="btn-new-org"
+              style={{ marginLeft: '10px' }}
+            >
+              Nueva Org
+            </Button>
         </div>
         <p className="header-subtitle">
-          {authUser?.organization_id === 1 
+          {authUser?.organizationName || (authUser?.organization_id === 1 
             ? "Gestionando todas las organizaciones (Súper Admin)" 
-            : `Gestionando Organización #${authUser?.organization_id}`}
+            : `Gestionando Organización #${authUser?.organization_id}`)}
         </p>
       </header>
 
@@ -236,27 +396,48 @@ function AdminDashboard() {
         </section>
       )}
 
-      {/* Admin Tabs */}
-      {authUser?.organization_id === 1 && (
         <div className="admin-tabs glass-panel">
+            <button 
+              className={`admin-tab ${currentTab === 'users' ? 'active' : ''}`}
+              onClick={() => setCurrentTab('users')}
+            >
+              <Users size={20} />
+              <span>Usuarios</span>
+            </button>
+            
+            {/* Todos los admins pueden ver sus organizaciones */}
+            <button 
+              className={`admin-tab ${currentTab === 'orgs' ? 'active' : ''}`}
+              onClick={() => setCurrentTab('orgs')}
+            >
+              <Building size={20} />
+              <span>Mis Organizaciones</span>
+            </button>
           <button 
-            className={`admin-tab ${currentTab === 'users' ? 'active' : ''}`}
-            onClick={() => setCurrentTab('users')}
-          >
-            <Users size={20} />
-            <span>Usuarios</span>
-          </button>
-          <button 
-            className={`admin-tab ${currentTab === 'orgs' ? 'active' : ''}`}
-            onClick={() => setCurrentTab('orgs')}
+            className={`admin-tab ${currentTab === 'org-profile' ? 'active' : ''}`}
+            onClick={() => setCurrentTab('org-profile')}
           >
             <Building size={20} />
-            <span>Organizaciones</span>
+            <span>Perfil de Empresa</span>
+          </button>
+          <button 
+            className={`admin-tab ${currentTab === 'audit' ? 'active' : ''}`}
+            onClick={() => setCurrentTab('audit')}
+          >
+            <Shield size={20} />
+            <span>Auditoría</span>
+          </button>
+          <button 
+            className={`admin-tab ${currentTab === 'subscription' ? 'active' : ''}`}
+            onClick={() => setCurrentTab('subscription')}
+          >
+            <CreditCard size={20} />
+            <span>Suscripción</span>
           </button>
         </div>
-      )}
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Only show if NOT in profile, audit or subscription tab */}
+      {currentTab !== 'org-profile' && currentTab !== 'audit' && currentTab !== 'subscription' && (
       <section className="admin-stats-grid">
         <div className="stat-card glass-panel">
           <div className="stat-icon users">
@@ -289,6 +470,16 @@ function AdminDashboard() {
           <div className="stat-glow"></div>
         </div>
       </section>
+      )}
+
+      {/* Profile View */}
+      {currentTab === 'org-profile' && <OrgProfile />}
+
+      {/* Audit Logs View */}
+      {currentTab === 'audit' && <AuditLogs />}
+
+      {/* Subscription View */}
+      {currentTab === 'subscription' && <SubscriptionPanel stats={stats} refreshStats={fetchData} />}
 
       {/* Users View */}
       {currentTab === 'users' && (
@@ -362,6 +553,19 @@ function AdminDashboard() {
                     </td>
                     <td className="td-actions">
                       <div className="action-buttons">
+                        {authUser?.organization_id === 1 && (
+                          <button 
+                            className="btn-action transfer" 
+                            title="Gestionar organizaciones"
+                            onClick={() => {
+                              setUserToManage(user);
+                              setShowManageOrgsModal(true);
+                              fetchUserMemberships(user.id);
+                            }}
+                          >
+                            <ArrowRightLeft size={18} />
+                          </button>
+                        )}
                         <button 
                           className="btn-action promote" 
                           title={user.role === 'admin' ? 'Degradar a Usuario' : 'Promover a Admin'}
@@ -382,7 +586,7 @@ function AdminDashboard() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="empty-table">
+                  <td colSpan="6" className="empty-table">
                     <AlertCircle size={24} />
                     <p>No se encontraron usuarios que coincidan con la búsqueda.</p>
                   </td>
@@ -431,9 +635,30 @@ function AdminDashboard() {
                     <td><code>{org.slug}</code></td>
                     <td>{new Date(org.created_at).toLocaleDateString()}</td>
                     <td>
-                      <button className="btn-action" title="Próximamente">
-                        <MoreVertical size={18} />
-                      </button>
+                      <div className="action-buttons">
+                        <label className="btn-action edit" title="Cambiar Logo" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) {
+                                handleLogoUpload(org.id, e.target.files[0]);
+                              }
+                              e.target.value = '';
+                            }}
+                          />
+                          <Upload size={18} />
+                        </label>
+                        <button 
+                          className="btn-action bdelete" 
+                          title="Eliminar organización"
+                          onClick={() => handleDeleteOrganization(org)}
+                          disabled={org.id === 1}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -497,6 +722,99 @@ function AdminDashboard() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL PARA GESTIONAR MEMBRESÍAS (SOLO SUPER ADMIN) --- */}
+      {showManageOrgsModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <div>
+                <h2>Gestionar Organizaciones</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+                  Usuario: <strong>{userToManage?.name}</strong> ({userToManage?.email})
+                </p>
+              </div>
+              <button className="modal-close-icon" onClick={() => setShowManageOrgsModal(false)}>×</button>
+            </div>
+            
+            <div className="modal-body" style={{ padding: '20px 0' }}>
+              {/* Listado de membresías actuales */}
+              <div className="memberships-section" style={{ marginBottom: '30px' }}>
+                <h3 style={{ fontSize: '16px', marginBottom: '15px', color: 'white' }}>Membresías Actuales</h3>
+                {loadingMemberships ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)' }}>
+                    <Loader2 className="spinner" size={18} /> Cargando membresías...
+                  </div>
+                ) : (
+                  <div className="memberships-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {userMemberships.map(m => (
+                      <div key={m.id} className="glass-panel" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <p style={{ fontWeight: '600', color: 'white' }}>{m.name}</p>
+                          <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Rol: {m.role === 'admin' ? 'Administrador' : 'Usuario'}</p>
+                        </div>
+                        <button 
+                          className="btn-action bdelete" 
+                          title="Quitar de esta organización"
+                          onClick={() => handleRemoveMembership(m.id)}
+                          disabled={isProcessingMembership || userMemberships.length <= 1}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', marginBottom: '30px' }}></div>
+
+              {/* Formulario para añadir nueva membresía */}
+              <div className="add-membership-section">
+                <h3 style={{ fontSize: '16px', marginBottom: '15px', color: 'white' }}>Añadir a Nueva Organización</h3>
+                <div className="form-group" style={{ marginBottom: '15px' }}>
+                  <label className="form-label">Seleccionar Organización</label>
+                  <select 
+                    className="home-input" 
+                    value={newOrgId} 
+                    onChange={(e) => setNewOrgId(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="">-- Selecciona una empresa --</option>
+                    {organizations
+                      .filter(org => !userMemberships.find(m => m.id === org.id))
+                      .map(org => (
+                        <option key={org.id} value={org.id}>{org.name}</option>
+                      ))
+                    }
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                  <label className="form-label">Rol en la Organización</label>
+                  <select 
+                    className="home-input" 
+                    value={newOrgRole} 
+                    onChange={(e) => setNewOrgRole(e.target.value)}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="user">Usuario Estándar</option>
+                    <option value="admin">Administrador de Organización</option>
+                  </select>
+                </div>
+                <Button 
+                  variant="primary" 
+                  fullWidth 
+                  onClick={handleAddMembership}
+                  disabled={!newOrgId || isProcessingMembership}
+                  icon={Plus}
+                >
+                  {isProcessingMembership ? 'Procesando...' : 'Vincular a esta Empresa'}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

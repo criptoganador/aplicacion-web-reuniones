@@ -89,6 +89,7 @@ function Register() {
               </div>
             )}
  
+
             <form className="auth-form" onSubmit={handleSubmit}>
               <div className="role-selector-container">
                 <label>¿Qué tipo de cuenta deseas crear?</label>
@@ -208,7 +209,7 @@ function Register() {
                     tabIndex={-1}
                     aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
               </div>
