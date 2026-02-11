@@ -21,6 +21,7 @@ import {
 } from "./utils/jwt.js";
 import { authenticateToken, isAdmin } from "./middleware/auth.js";
 import Joi from "joi";
+import notificationsRoutes from "./routes/notifications.js";
 
 dotenv.config();
 
@@ -303,6 +304,8 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use("/api/notifications", notificationsRoutes);
+
 // CONFIGURACIÓN MULTER (Subida Local)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -452,6 +455,27 @@ app.post("/meetings/start", authenticateToken, async (req, res) => {
         [meeting.id, host_id],
       );
     }
+
+    // 🔔 NOTIFICAR A MIEMBROS DE LA ORGANIZACIÓN
+    const inviterName = organized_by || "un compañero";
+    const meetingTitle = title || "Reunión Instantánea";
+    const notificationMessage = `Te han invitado a la reunión: ${meetingTitle} por ${inviterName}`;
+    const notificationLink = `/pre-lobby/${link}`;
+
+    // Insertar notificaciones para todos los miembros de la org (menos el host)
+    // Usamos INSERT INTO ... SELECT para eficiencia
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, message, link)
+       SELECT id, 'meeting_invite', $1, $2
+       FROM users
+       WHERE organization_id = $3 AND id != $4`,
+      [
+        notificationMessage,
+        notificationLink,
+        req.user.organizationId,
+        host_id || req.user.userId,
+      ],
+    );
 
     res.json({
       success: true,

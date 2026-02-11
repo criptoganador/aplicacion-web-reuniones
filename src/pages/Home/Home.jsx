@@ -499,6 +499,7 @@ function Home() {
             <Link to="/privacy">Privacidad</Link>
             <Link to="/cookies">Cookies</Link>
             <Link to="/help">Ayuda</Link>
+            <Link to="/user-manual">Manual de Usuario</Link>
           </nav>
         </div>
       </footer>

@@ -105,6 +105,16 @@ export const initDB = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, organization_id)
       );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        link TEXT,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // 2. ✨ MIGRACIONES DINÁMICAS (Para bases ya existentes)

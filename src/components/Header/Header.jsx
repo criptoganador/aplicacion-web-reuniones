@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Video, Settings, User, ChevronDown, Sun, Moon, LogOut, Trash2, Shield,
-  Leaf, Zap, Snowflake, Grid, Plus, Building
+  Leaf, Zap, Snowflake, Grid, Plus, Building, BookOpen, Bell
 } from 'lucide-react';
 import { useTheme } from '../../context';
 import { useAuth } from '../../context/AuthContext';
@@ -13,7 +13,8 @@ function Header({ showUserMenu = true }) {
   const { theme, setTheme } = useTheme();
   const { 
     user, isAuthenticated, logout, deleteAccount, 
-    memberships, switchOrganization, createOrganization 
+    memberships, switchOrganization, createOrganization,
+    authFetch 
   } = useAuth();
   const navigate = useNavigate();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
@@ -34,12 +35,71 @@ function Header({ showUserMenu = true }) {
   const themeMenuRef = useRef(null);
   const userMenuRef = useRef(null);
   const orgSwitcherRef = useRef(null);
+  const notificationRef = useRef(null);
+
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await authFetch('/notifications');
+      const data = await res.json();
+      if (data.success) {
+        setNotifications(data.notifications);
+        setUnreadCount(data.unreadCount);
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  const handleNotificationClick = async (notif) => {
+    try {
+      if (!notif.is_read) {
+        await authFetch(`/notifications/${notif.id}/read`, {
+          method: 'PUT'
+        });
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+      }
+      setShowNotifications(false);
+      navigate(notif.link);
+    } catch (err) {
+      console.error('Error handling notification:', err);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await authFetch('/notifications/read-all', {
+        method: 'PUT'
+      });
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error('Error marking all read:', err);
+    }
+  };
 
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (themeMenuRef.current && !themeMenuRef.current.contains(event.target)) {
         setShowThemeMenu(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
       }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserDropdown(false);
@@ -185,6 +245,57 @@ function Header({ showUserMenu = true }) {
       
       {showUserMenu && (
         <div className="header-right">
+          <div className="notification-container" ref={notificationRef}>
+            <button 
+              className={`header-icon-btn ${showNotifications ? 'active' : ''}`}
+              onClick={() => setShowNotifications(!showNotifications)}
+              title="Notificaciones"
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+            </button>
+
+            {showNotifications && (
+              <div className="notifications-dropdown glass-panel">
+                <div className="notifications-header">
+                  <span className="notif-title">Notificaciones</span>
+                  {unreadCount > 0 && (
+                    <button className="mark-read-btn" onClick={markAllRead}>
+                      Marcar leídas
+                    </button>
+                  )}
+                </div>
+                <div className="notifications-list">
+                  {notifications.length === 0 ? (
+                    <div className="no-notifications">
+                      <Bell size={24} className="empty-icon" />
+                      <p>No tienes notificaciones</p>
+                    </div>
+                  ) : (
+                    notifications.map(notif => (
+                      <div 
+                        key={notif.id} 
+                        className={`notification-item ${!notif.is_read ? 'unread' : ''}`}
+                        onClick={() => handleNotificationClick(notif)}
+                      >
+                        <div className="notif-icon">
+                          <Video size={14} />
+                        </div>
+                        <div className="notif-content">
+                          <p className="notif-message">{notif.message}</p>
+                          <span className="notif-time">
+                            {new Date(notif.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {!notif.is_read && <div className="unread-dot"></div>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="theme-selector-container" ref={themeMenuRef}>
             <button 
               className={`header-icon-btn theme-toggle-btn ${theme}`} 
@@ -219,6 +330,14 @@ function Header({ showUserMenu = true }) {
             )}
           </div>
           
+          <button 
+            className="header-icon-btn" 
+            title="Manual de Usuario"
+            onClick={() => navigate('/user-manual')}
+          >
+            <BookOpen size={20} />
+          </button>
+
           <button 
             className="header-icon-btn" 
             title="Configuración"
