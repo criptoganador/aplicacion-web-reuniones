@@ -415,6 +415,9 @@ app.get("/", (req, res) => {
 // 🔹 Crear reunión instantánea (PROTEGIDO)
 app.post("/meetings/start", authenticateToken, async (req, res) => {
   try {
+    // Debug logs: imprimir usuario y payload para diagnosticar 500 después de limpieza de BD
+    console.log('➡️ /meetings/start payload:', JSON.stringify(req.body));
+    console.log('➡️ /meetings/start req.user:', JSON.stringify(req.user));
     // 1. Validar entrada
     const { error, value } = meetingSchema.validate(req.body);
     if (error) {
@@ -464,14 +467,16 @@ app.post("/meetings/start", authenticateToken, async (req, res) => {
 
     // Insertar notificaciones para todos los miembros de la org (menos el host)
     // Usamos INSERT INTO ... SELECT para eficiencia
+    // Insertar notificaciones con referencia a la reunión (Smart Cleanup)
     await pool.query(
-      `INSERT INTO notifications (user_id, type, message, link)
-       SELECT id, 'meeting_invite', $1, $2
+      `INSERT INTO notifications (user_id, type, message, link, meeting_id)
+       SELECT id, 'meeting_invite', $1, $2, $3
        FROM users
-       WHERE organization_id = $3 AND id != $4`,
+       WHERE organization_id = $4 AND id != $5`,
       [
         notificationMessage,
         notificationLink,
+        meeting.id, // 🔔 ID de la reunión para borrado en cascada
         req.user.organizationId,
         host_id || req.user.userId,
       ],
@@ -482,7 +487,8 @@ app.post("/meetings/start", authenticateToken, async (req, res) => {
       meeting,
     });
   } catch (err) {
-    console.error(err);
+    // Print stack for easier debugging
+    console.error('❌ Error en /meetings/start:', err.stack || err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -1256,7 +1262,7 @@ app.get("/auth/memberships", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const result = await pool.query(
-      `SELECT o.id, o.name, o.slug, o.logo_url, uo.role, uo.created_at
+      `SELECT o.id, o.name, o.slug, o.logo_url, o.join_code, uo.role, uo.created_at
        FROM organizations o
        JOIN user_organizations uo ON o.id = uo.organization_id
        WHERE uo.user_id = $1
@@ -3029,7 +3035,162 @@ app.post(
 // ---------------------------------------------------------
 
 // ---------------------------------------------------------
-// 🧹 AGENTE DE LIMPIEZA AUTOMÁTICO (GARBAGE COLLECTOR)
+// ⚙️ ENDPOINT: Configuración de Usuario (Notificaciones)
+app.put("/api/users/settings", authenticateToken, async (req, res) => {
+  try {
+    const { notification_preferences } = req.body;
+    
+    // Merge actual preferences with new ones
+    const currentResult = await pool.query(
+      "SELECT notification_preferences FROM users WHERE id = $1",
+      [req.user.userId]
+    );
+    
+    const currentPrefs = currentResult.rows[0]?.notification_preferences || {};
+    const newPrefs = { ...currentPrefs, ...notification_preferences };
+
+    await pool.query(
+      "UPDATE users SET notification_preferences = $1 WHERE id = $2",
+      [JSON.stringify(newPrefs), req.user.userId]
+    );
+
+    res.json({ success: true, preferences: newPrefs });
+  } catch (err) {
+    console.error("Error updating settings:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/users/settings", authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT notification_preferences FROM users WHERE id = $1",
+      [req.user.userId]
+    );
+    res.json({ 
+      success: true, 
+      preferences: result.rows[0]?.notification_preferences || { 
+        instant: true, scheduled: true, later: true 
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ---------------------------------------------------------
+// ⏰ NOTIFICATION SCHEDULER (Cron Logic)
+// ---------------------------------------------------------
+setInterval(async () => {
+  try {
+    const now = new Date();
+    
+    // 1. ⚡ REUNIONES INSTANTÁNEAS (Loop cada 2 min)
+    // Buscamos reuniones activas e instantáneas que no hayan enviado recordatorio en > 2 min
+    const instantMeetings = await pool.query(
+      `SELECT * FROM meetings 
+       WHERE is_active = true 
+       AND meeting_type = 'instant'
+       AND (last_reminded_at IS NULL OR last_reminded_at < NOW() - INTERVAL '2 minutes')`
+    );
+
+    for (const meeting of instantMeetings.rows) {
+      // Obtener miembros de la org que NO están en la reunión
+      // Y que tengan activas las notificaciones 'instant'
+      const targetUsers = await pool.query(
+        `SELECT u.id FROM users u
+         LEFT JOIN participants p ON p.user_id = u.id AND p.meeting_id = $1
+         WHERE u.organization_id = $2
+         AND p.id IS NULL
+         AND (u.notification_preferences->>'instant')::boolean IS NOT false`,
+        [meeting.id, meeting.organization_id]
+      );
+
+      if (targetUsers.rows.length > 0) {
+        // Enviar notificaciones
+        const message = `🔴 Reunión en curso: ${meeting.title || 'Reunión Instantánea'}. ¡Únete ahora!`;
+        const link = `/pre-lobby/${meeting.link}`;
+
+        for (const user of targetUsers.rows) {
+           await pool.query(
+            "INSERT INTO notifications (user_id, type, message, link, meeting_id) VALUES ($1, 'meeting_invite', $2, $3, $4)",
+            [user.id, message, link, meeting.id]
+           );
+        }
+        
+        // Actualizar timestamp
+        await pool.query("UPDATE meetings SET last_reminded_at = NOW() WHERE id = $1", [meeting.id]);
+        console.log(`📡 Recordatorio enviado para reunión instantánea ${meeting.id} a ${targetUsers.rows.length} usuarios.`);
+      }
+    }
+
+    // 2. 📅 REUNIONES PROGRAMADAS (Recordatorios fijos)
+    // Buscamos reuniones futuras que no sean instantáneas
+    const scheduledMeetings = await pool.query(
+      `SELECT * FROM meetings 
+       WHERE is_active = true 
+       AND meeting_type IN ('scheduled', 'later')
+       AND scheduled_time > NOW()`
+    );
+
+    for (const meeting of scheduledMeetings.rows) {
+      const scheduledTime = new Date(meeting.scheduled_time);
+      const diffMinutes = (scheduledTime - now) / (1000 * 60);
+      const remindersSent = meeting.reminders_track || []; // JSON array
+
+      let typeToSend = null;
+      let msg = "";
+
+      // A. Un día antes (Entre 23h y 25h antes)
+      if (diffMinutes > 1380 && diffMinutes < 1500 && !remindersSent.includes('1d')) {
+         typeToSend = '1d';
+         msg = `📅 Recordatorio: Mañana tienes la reunión "${meeting.title}" a las ${scheduledTime.toLocaleTimeString()}`;
+      }
+
+      // B. Mismo día (Aprox 4 horas antes)
+      if (diffMinutes > 240 && diffMinutes < 300 && !remindersSent.includes('today')) {
+         typeToSend = 'today';
+         msg = `📅 Hoy tienes: "${meeting.title}" a las ${scheduledTime.toLocaleTimeString()}`;
+      }
+      
+      // C. 10 Minutos antes (Entre 8 y 12 min)
+      if (diffMinutes > 8 && diffMinutes < 12 && !remindersSent.includes('10m')) {
+         typeToSend = '10m';
+         msg = `⏰ En 10 minutos comienza: "${meeting.title}". ¡Prepárate!`;
+      }
+
+      if (typeToSend) {
+        // Buscar usuarios (filtro por preferencia)
+        const prefKey = meeting.meeting_type === 'later' ? 'later' : 'scheduled';
+        
+        const targetUsers = await pool.query(
+          `SELECT id FROM users 
+           WHERE organization_id = $1
+           AND (notification_preferences->>$2)::boolean IS NOT false`,
+          [meeting.organization_id, prefKey]
+        );
+
+        for (const user of targetUsers.rows) {
+           await pool.query(
+            "INSERT INTO notifications (user_id, type, message, link, meeting_id) VALUES ($1, 'system_alert', $2, $3, $4)",
+            [user.id, msg, `/pre-lobby/${meeting.link}`, meeting.id]
+           );
+        }
+
+        // Marcar como enviado
+        remindersSent.push(typeToSend);
+        await pool.query(
+          "UPDATE meetings SET reminders_track = $1 WHERE id = $2",
+          [JSON.stringify(remindersSent), meeting.id]
+        );
+        console.log(`📅 Recordatorio (${typeToSend}) enviado para reunión ${meeting.id}`);
+      }
+    }
+
+  } catch (err) {
+    console.error("Error en Notification Scheduler:", err.message);
+  }
+}, 60000); // Ejecutar cada minuto
 // ---------------------------------------------------------
 // Se ejecuta cada 60 segundos para borrar salas abandonadas
 const cleanupInterval = 60 * 1000; // 60 segundos

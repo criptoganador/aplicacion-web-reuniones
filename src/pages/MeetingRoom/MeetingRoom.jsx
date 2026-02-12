@@ -214,6 +214,24 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   const { chatMessages, send } = useChat();
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
+  const { user, memberships } = useAuth(); // Get auth info
+  
+  const [isOrgCopied, setIsOrgCopied] = useState(false);
+
+  // Logic for displaying Org Code
+  const currentOrg = memberships.find(m => m.id === user?.organization_id);
+  const isOrgAdmin = currentOrg?.role === 'admin';
+  const orgJoinCode = currentOrg?.join_code;
+  const canShowOrgCode = isHost && isOrgAdmin && orgJoinCode;
+
+  const copyOrgCode = () => {
+    if (orgJoinCode) {
+      navigator.clipboard.writeText(orgJoinCode);
+      setIsOrgCopied(true);
+      toast.success("Código de organización copiado");
+      setTimeout(() => setIsOrgCopied(false), 2000);
+    }
+  };
   
   // --- RECORDING LOGIC ---
   const startRecording = async () => {
@@ -740,9 +758,26 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
       <div className="custom-control-bar-wrapper">
         <div className="meeting-info-pill-docked">
           <span className="meeting-id-text">{meetingId}</span>
-          <button className="pill-copy-btn" onClick={copyMeetingLink} title="Copiar enlace">
-            {isCopied ? <Check size={16} style={{ color: '#10b981' }} /> : <Copy size={16} />}
-          </button>
+          <div className="hide-on-mobile">
+            <button className="pill-copy-btn" onClick={copyMeetingLink} title="Copiar enlace de reunión">
+              {isCopied ? <Check size={16} style={{ color: '#10b981' }} /> : <Copy size={16} />}
+            </button>
+          </div>
+          
+          {canShowOrgCode && (
+            <>
+              <div className="hide-on-mobile" style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.2)', margin: '0 8px' }}></div>
+                <span className="meeting-id-text" style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ opacity: 0.6, fontSize: '10px', textTransform: 'uppercase' }}>ORG:</span>
+                  {orgJoinCode}
+                </span>
+                <button className="pill-copy-btn" onClick={copyOrgCode} title="Copiar código de organización">
+                  {isOrgCopied ? <Check size={16} style={{ color: '#10b981' }} /> : <Copy size={16} />}
+                </button>
+              </div>
+            </>
+          )}
         </div>
         <ControlBar 
           variation="minimal" 
@@ -788,6 +823,28 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
                 <span>Participantes</span>
               </button>
             )}
+
+            {/* Mobile-only: move org code actions into the More menu to avoid overlap on small screens */}
+            {canShowOrgCode && (
+              <button
+                className={`lk-button show-on-mobile-only mobile-org-copy`}
+                onClick={() => { copyOrgCode(); setShowMoreMenu(false); }}
+                title="Copiar código de organización"
+              >
+                <Copy size={18} />
+                <span>Copiar código de organización</span>
+              </button>
+            )}
+
+            {/* Mobile-only: copy meeting link action placed in More menu */}
+            <button
+              className={`lk-button show-on-mobile-only mobile-meeting-copy`}
+              onClick={() => { copyMeetingLink(); setShowMoreMenu(false); }}
+              title="Copiar enlace de reunión"
+            >
+              <Copy size={18} />
+              <span>Copiar enlace de reunión</span>
+            </button>
 
             {isHost && (
               <button 

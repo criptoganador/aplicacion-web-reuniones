@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, History, Camera, Save, ArrowLeft, Video, Link2, Calendar, LayoutGrid } from 'lucide-react';
+import { User, Shield, History, Camera, Save, ArrowLeft, Video, Link2, Calendar, LayoutGrid, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import Header from '../../components/Header';
@@ -31,6 +31,14 @@ function Settings() {
   const [meetingHistory, setMeetingHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
+  // Notifications State
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    instant: true,
+    scheduled: true,
+    later: true
+  });
+  const [isLoadingPrefs, setIsLoadingPrefs] = useState(false);
+
   useEffect(() => {
     if (activeTab === 'history') {
       fetchHistory();
@@ -52,6 +60,45 @@ function Settings() {
       setIsLoadingHistory(false);
     }
   };
+
+  const fetchNotificationPrefs = async () => {
+    setIsLoadingPrefs(true);
+    try {
+      const res = await authFetch('/api/users/settings');
+      const data = await res.json();
+      if (data.success) {
+        setNotificationPrefs(data.preferences);
+      }
+    } catch (err) {
+      console.error('Error fetching prefs:', err);
+    } finally {
+      setIsLoadingPrefs(false);
+    }
+  };
+
+  const handleTogglePref = async (key) => {
+    const newPrefs = { ...notificationPrefs, [key]: !notificationPrefs[key] };
+    setNotificationPrefs(newPrefs); // Optimistic update
+
+    try {
+      await authFetch('/api/users/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_preferences: newPrefs })
+      });
+      toast.success('Preferencias actualizadas');
+    } catch (err) {
+      toast.error('Error al guardar cambios');
+      setNotificationPrefs(notificationPrefs); // Revert
+    }
+  };
+
+
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      fetchNotificationPrefs();
+    }
+  }, [activeTab]);
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
@@ -171,6 +218,13 @@ function Settings() {
               >
                 <History size={20} />
                 <span>Historial</span>
+              </button>
+              <button 
+                className={`tab-btn ${activeTab === 'notifications' ? 'active' : ''}`}
+                onClick={() => setActiveTab('notifications')}
+              >
+                <Bell size={20} />
+                <span>Notificaciones</span>
               </button>
             </aside>
 
@@ -327,6 +381,59 @@ function Settings() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+              {activeTab === 'notifications' && (
+                <div className="settings-section notifications-section animate-fade-in">
+                  <h2>Preferencias de Notificación</h2>
+                  <p className="section-desc">Elige qué tipo de alertas quieres recibir.</p>
+
+                  <div className="prefs-list">
+                    <div className="pref-item">
+                      <div className="pref-info">
+                        <h3>Reuniones Instantáneas</h3>
+                        <p>Recibe alertas cada 2 min si hay una reunión activa en tu organización.</p>
+                      </div>
+                      <label className="toggle-switch">
+                        <input 
+                          type="checkbox" 
+                          checked={notificationPrefs.instant !== false} 
+                          onChange={() => handleTogglePref('instant')}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+                    </div>
+
+                    <div className="pref-item">
+                      <div className="pref-info">
+                        <h3>Reuniones Programadas</h3>
+                        <p>Recordatorios 1 día antes y 10 minutos antes.</p>
+                      </div>
+                      <label className="toggle-switch">
+                        <input 
+                          type="checkbox" 
+                          checked={notificationPrefs.scheduled !== false} 
+                          onChange={() => handleTogglePref('scheduled')}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+                    </div>
+
+                    <div className="pref-item">
+                      <div className="pref-info">
+                        <h3>Reuniones "Para Después"</h3>
+                        <p>Avisos para reuniones sin fecha fija específica.</p>
+                      </div>
+                      <label className="toggle-switch">
+                        <input 
+                          type="checkbox" 
+                          checked={notificationPrefs.later !== false} 
+                          onChange={() => handleTogglePref('later')}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
             </section>

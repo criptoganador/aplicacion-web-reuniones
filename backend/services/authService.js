@@ -12,24 +12,43 @@ const client = new OAuth2Client(config.google.clientId);
 /**
  * Register a new user
  */
-export async function registerUser({ name, email, password, organizationName }) {
+export async function registerUser({ name, email, password, organizationName, role = 'admin', joinCode = null }) {
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
   
   // Generate verification token
   const verificationToken = crypto.randomBytes(32).toString('hex');
   
-  // Create organization
-  const userUUID = crypto.randomUUID();
-  const orgName = organizationName || `Organización de ${name}`;
-  const orgSlug = `org-${userUUID.slice(0, 8)}`;
-  const joinCode = Math.random().toString(36).substring(7).toUpperCase();
-  
-  const orgResult = await pool.query(
-    'INSERT INTO organizations (name, slug, join_code) VALUES ($1, $2, $3) RETURNING id',
-    [orgName, orgSlug, joinCode]
-  );
-  const organizationId = orgResult.rows[0].id;
+  let organizationId;
+  let finalJoinCode;
+
+  // Case 1: Join existing organization (User)
+  if (role === 'user' && joinCode) {
+    const orgResult = await pool.query(
+      'SELECT id, join_code FROM organizations WHERE join_code = $1',
+      [joinCode]
+    );
+
+    if (orgResult.rows.length === 0) {
+      throw new Error('Código de invitación inválido. Verifique el código proporcionado.');
+    }
+
+    organizationId = orgResult.rows[0].id;
+    finalJoinCode = orgResult.rows[0].join_code;
+  } 
+  // Case 2: Create new organization (Admin)
+  else {
+    const userUUID = crypto.randomUUID();
+    const orgName = organizationName || `Organización de ${name}`;
+    const orgSlug = `org-${userUUID.slice(0, 8)}`;
+    finalJoinCode = Math.random().toString(36).substring(7).toUpperCase();
+    
+    const orgResult = await pool.query(
+      'INSERT INTO organizations (name, slug, join_code) VALUES ($1, $2, $3) RETURNING id',
+      [orgName, orgSlug, finalJoinCode]
+    );
+    organizationId = orgResult.rows[0].id;
+  }
   
   // Create user
   const userResult = await pool.query(
@@ -39,22 +58,27 @@ export async function registerUser({ name, email, password, organizationName }) 
   );
   const user = userResult.rows[0];
   
-  // Add user to organization with admin role
+  // Add user to organization with specified role
+  // If creating new org, role is admin. If joining, role is user.
+  const finalRole = (role === 'user' && joinCode) ? 'user' : 'admin';
+
   await pool.query(
     'INSERT INTO user_organizations (user_id, organization_id, role) VALUES ($1, $2, $3)',
-    [user.id, organizationId, 'admin']
+    [user.id, organizationId, finalRole]
   );
   
-  // Set owner
-  await pool.query(
-    'UPDATE organizations SET owner_id = $1 WHERE id = $2',
-    [user.id, organizationId]
-  );
+  // If created new org, set owner
+  if (finalRole === 'admin') {
+    await pool.query(
+      'UPDATE organizations SET owner_id = $1 WHERE id = $2',
+      [user.id, organizationId]
+    );
+  }
   
   // Send verification email
   await sendVerificationEmail(email, verificationToken);
   
-  return { user, organizationId, joinCode };
+  return { user, organizationId, joinCode: finalJoinCode };
 }
 
 /**

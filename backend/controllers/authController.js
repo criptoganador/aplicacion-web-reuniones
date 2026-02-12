@@ -7,13 +7,15 @@ import { config } from '../config/index.js';
  */
 export async function register(req, res) {
   try {
-    const { name, email, password, organizationName } = req.body;
+    const { name, email, password, organizationName, role, joinCode } = req.body;
     
-    const { user, organizationId, joinCode } = await authService.registerUser({
+    const { user, organizationId, joinCode: orgJoinCode } = await authService.registerUser({
       name,
       email,
       password,
       organizationName,
+      role,
+      joinCode,
     });
     
     res.status(201).json({
@@ -28,7 +30,8 @@ export async function register(req, res) {
       joinCode,
     });
   } catch (error) {
-    console.error('❌ Error en registro:', error);
+    // Log full stack for easier debugging after DB reset
+    console.error('❌ Error en registro:', error.stack || error);
     res.status(400).json({
       success: false,
       error: error.message || 'Error al registrar usuario',

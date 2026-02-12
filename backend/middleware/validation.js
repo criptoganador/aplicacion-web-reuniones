@@ -15,7 +15,9 @@ export const registerSchema = Joi.object({
     'string.min': 'La contraseña debe tener al menos 6 caracteres',
     'any.required': 'La contraseña es obligatoria',
   }),
-  organizationName: Joi.string().min(2).max(100).optional(),
+  organizationName: Joi.string().min(2).max(100).optional().allow(''),
+  role: Joi.string().valid('user', 'admin').optional().default('admin'),
+  joinCode: Joi.string().optional().allow(''),
 });
 
 // Login validation schema

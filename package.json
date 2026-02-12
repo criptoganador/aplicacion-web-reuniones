@@ -14,8 +14,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "npx concurrently \"npm run dev\" \"npx wait-on http://localhost:5173 && npx cross-env ELECTRON_START_URL=http://localhost:5173 npm run electron\"",
-    "package": "npm run build && npx cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder"
+    "electron:dev": "npx concurrently \"npx cross-env ELECTRON_BUILD=true npm run dev\" \"npx wait-on http://localhost:5173 && npx cross-env ELECTRON_START_URL=http://localhost:5173 npm run electron\"",
+    "package": "npx cross-env ELECTRON_BUILD=true npm run build && npx cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

@@ -35,11 +35,64 @@ function Header({ showUserMenu = true }) {
   const themeMenuRef = useRef(null);
   const userMenuRef = useRef(null);
   const orgSwitcherRef = useRef(null);
-  const notificationRef = useRef(null);
+  // Sound Effect (Pop/Ding) - Base64 to avoid asset issues
+  const playNotificationSound = () => {
+    try {
+      const audio = new Audio("data:audio/mp3;base64,//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq");
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log("Audio autoplay prevented:", e));
+    } catch (e) {
+      console.error("Error playing notification sound", e);
+    }
+  };
 
+  const timeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 60) return 'Hace un momento';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `Hace ${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Hace ${hours} h`;
+    return date.toLocaleDateString();
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'meeting_invite': return <Video size={16} className="text-blue-400" />;
+      case 'system_alert': return <Shield size={16} className="text-red-400" />;
+      case 'info': return <BookOpen size={16} className="text-green-400" />;
+      default: return <Bell size={16} className="text-gray-400" />;
+    }
+  };
+
+  // Track previous unread count to trigger sound/toast
+  const prevUnreadCountRef = useRef(0);
+  // Notification state (was missing, causing ReferenceError when Header mounted)
+  const notificationRef = useRef(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    if (unreadCount > prevUnreadCountRef.current) {
+      // New notification arrived!
+      playNotificationSound();
+      
+      // Find the newest notification to show in toast
+      if (notifications.length > 0) {
+        const newest = notifications[0];
+        toast.info(newest.message, {
+          description: timeAgo(newest.created_at),
+          icon: <Bell size={16} />,
+          duration: 4000,
+        });
+      }
+    }
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount, notifications]);
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -48,8 +101,12 @@ function Header({ showUserMenu = true }) {
       const res = await authFetch('/api/notifications');
       const data = await res.json();
       if (data.success) {
-        setNotifications(data.notifications);
-        setUnreadCount(data.unreadCount);
+        // Compare with current state to avoid unnecessary renders
+        // Only update if count changed or first load
+        if (data.unreadCount !== unreadCount || notifications.length === 0) {
+           setNotifications(data.notifications);
+           setUnreadCount(data.unreadCount);
+        }
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -59,7 +116,7 @@ function Header({ showUserMenu = true }) {
   useEffect(() => {
     if (isAuthenticated) {
       fetchNotifications();
-      const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+      const interval = setInterval(fetchNotifications, 30000); // Poll every 30s (more frequent)
       return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
@@ -87,6 +144,7 @@ function Header({ showUserMenu = true }) {
       });
       setUnreadCount(0);
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      toast.success("Todas las notificaciones marcadas como leídas");
     } catch (err) {
       console.error('Error marking all read:', err);
     }
@@ -251,12 +309,12 @@ function Header({ showUserMenu = true }) {
               onClick={() => setShowNotifications(!showNotifications)}
               title="Notificaciones"
             >
-              <Bell size={20} />
+              <Bell size={20} className={unreadCount > 0 ? "bell-shake" : ""} />
               {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
             </button>
 
             {showNotifications && (
-              <div className="notifications-dropdown glass-panel">
+              <div className="notifications-dropdown glass-panel show">
                 <div className="notifications-header">
                   <span className="notif-title">Notificaciones</span>
                   {unreadCount > 0 && (
@@ -278,13 +336,13 @@ function Header({ showUserMenu = true }) {
                         className={`notification-item ${!notif.is_read ? 'unread' : ''}`}
                         onClick={() => handleNotificationClick(notif)}
                       >
-                        <div className="notif-icon">
-                          <Video size={14} />
+                        <div className={`notif-icon-wrapper ${notif.type || 'default'}`}>
+                          {getNotificationIcon(notif.type)}
                         </div>
                         <div className="notif-content">
                           <p className="notif-message">{notif.message}</p>
                           <span className="notif-time">
-                            {new Date(notif.created_at).toLocaleDateString()}
+                            {timeAgo(notif.created_at)}
                           </span>
                         </div>
                         {!notif.is_read && <div className="unread-dot"></div>}

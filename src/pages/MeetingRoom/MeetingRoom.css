@@ -1583,6 +1583,11 @@
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.2s ease;
+  /* Allow items to wrap instead of overlapping on small screens */
+  flex-wrap: wrap;
+  /* Prevent the pill from growing too wide and pushing other controls */
+  max-width: calc(70vw - 48px);
+  overflow: hidden;
 }
 
 .meeting-info-pill-docked:hover {
@@ -1596,6 +1601,10 @@
   font-weight: 500;
   font-family: "Inter", sans-serif;
   letter-spacing: 0.5px;
+  max-width: 28ch; /* limit visual width */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .meeting-info-pill-docked .pill-copy-btn {
@@ -1607,6 +1616,105 @@
   display: flex;
   border-radius: 4px;
   transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+/* Small screens: move pill to center-top of control bar and stack items vertically if needed */
+@media (max-width: 520px) {
+  .meeting-info-pill-docked {
+    position: static; /* let it flow within control bar */
+    width: calc(100% - 32px);
+    margin: 6px auto;
+    justify-content: center;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .custom-control-bar-wrapper {
+    padding: 6px 12px;
+    height: auto !important;
+    min-height: 56px;
+  }
+
+  .meeting-info-pill-docked .meeting-id-text {
+    max-width: 40ch;
+    white-space: normal;
+    text-overflow: unset;
+    overflow: visible;
+    font-size: 13px;
+  }
+
+  .meeting-info-pill-docked .pill-copy-btn {
+    padding: 6px;
+  }
+}
+
+/* Handle small landscape devices (low height) to avoid overlap when toolbar height is constrained */
+@media (orientation: landscape) and (max-height: 480px) {
+  .meeting-info-pill-docked {
+    position: static;
+    width: calc(100% - 24px);
+    margin: 6px auto;
+    justify-content: center;
+    padding: 6px 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .custom-control-bar-wrapper {
+    padding: 6px 8px;
+    height: auto !important;
+    min-height: 56px;
+  }
+
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  .show-on-mobile-only {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .meeting-info-pill-docked .meeting-id-text {
+    font-size: 13px;
+    max-width: 40ch;
+    white-space: normal;
+  }
+}
+
+/* Hide the inline org code on small screens (moved to More menu) */
+.hide-on-mobile {
+  display: block;
+}
+
+.show-on-mobile-only {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  .show-on-mobile-only {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    color: #e9edef;
+    justify-content: flex-start;
+  }
+
+  .mobile-org-copy span {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 14px;
+  }
 }
 
 .meeting-info-pill-docked .pill-copy-btn:hover {
