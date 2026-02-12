@@ -15,18 +15,11 @@ function createWindow() {
     icon: path.join(__dirname, '../public/favicon.png')
   });
 
-  // Load local file in production, remote URL in dev
-  const isDev = !app.isPackaged;
-  const startUrl = isDev 
-    ? 'http://localhost:5173' 
-    : `file://${path.join(__dirname, '../dist/index.html')}`;
-
-  mainWindow.loadURL(startUrl);
-
-  // Open DevTools in dev mode
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
-  }
+  // Cargar desde Render (producción)
+  mainWindow.loadURL('https://app-frontend-z9ej.onrender.com');
+  
+  // Descomentar para debugging si hay problemas
+  // mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
