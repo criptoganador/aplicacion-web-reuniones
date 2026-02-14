@@ -80,7 +80,7 @@
 .pre-lobby-content {
   display: grid;
   grid-template-columns: 1.25fr 1fr;
-  gap: var(--space-12);
+  gap: var(--space-8);
   max-width: 1200px;
   width: 100%;
   align-items: flex-start;
@@ -518,15 +518,18 @@
 @media (max-width: 1024px) {
   .pre-lobby-content {
     grid-template-columns: 1fr;
-    gap: var(--space-8);
+    gap: var(--space-6);
   }
   
   .video-preview-container {
     max-width: 100%;
+    border-radius: 16px;
   }
   
   .pre-lobby-card {
     max-width: 100%;
+    border-radius: 24px;
+    padding: var(--space-6);
   }
 }
 
@@ -535,24 +538,39 @@
     padding: var(--space-4);
   }
   
+  .pre-lobby-content {
+    gap: var(--space-4);
+  }
+
   .pre-lobby-card {
-    padding: var(--space-6);
+    padding: var(--space-5);
+    border-radius: 20px;
+  }
+
+  .pre-lobby-card h2 {
+    font-size: 1.8rem;
+    margin-bottom: var(--space-6);
   }
   
   .video-controls {
     gap: var(--space-2);
-    padding: var(--space-2);
+    padding: var(--space-2) var(--space-4);
   }
   
   .control-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
   
   .avatar-large {
     width: 80px;
     height: 80px;
     font-size: 32px;
+  }
+
+  .name-input {
+    height: 52px;
+    padding: 0 var(--space-4);
   }
 }
 
