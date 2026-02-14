@@ -50,9 +50,9 @@ function PreLobby() {
       return;
     }
     
-    // Max 2MB
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('La imagen debe ser menor a 2MB');
+    // Max 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('La imagen debe ser menor a 10MB');
       return;
     }
     

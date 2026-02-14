@@ -109,8 +109,8 @@ function Settings() {
       return;
     }
     
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('La imagen debe ser menor a 2MB');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('La imagen debe ser menor a 10MB');
       return;
     }
     
@@ -257,7 +257,7 @@ function Settings() {
                       />
                       <div className="avatar-edit-info">
                         <h3>Foto de perfil</h3>
-                        <p>Haz clic para cambiar tu foto. JPG o PNG, máximo 2MB.</p>
+                        <p>Haz clic para cambiar tu foto. JPG o PNG, máximo 10MB.</p>
                       </div>
                     </div>
 
