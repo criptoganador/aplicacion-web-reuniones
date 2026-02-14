@@ -584,23 +584,74 @@
 
 @media (max-width: 768px) {
   .header {
-    padding: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--space-3);
+    height: 56px;
   }
   
   .header-time,
   .header-logo-subtitle,
-  .header-user-name {
+  .header-user-name,
+  .org-btn-info {
+    display: none;
+  }
+
+  .header-org-switcher {
+    margin-left: var(--space-2);
+    padding-left: var(--space-2);
+  }
+
+  .org-switcher-btn {
+    padding: 4px;
+    border-radius: 8px;
+  }
+
+  .org-btn-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .org-chevron {
     display: none;
   }
   
+  .header-right {
+    gap: var(--space-2);
+  }
+
+  .header-icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
   .header-user-btn {
-    padding: 4px;
+    padding: 2px;
     gap: 0;
   }
 
   .header-user-dropdown {
-    width: 280px;
-    right: -10px;
+    width: calc(100vw - 32px);
+    max-width: 320px;
+    right: -8px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Ocultar redundantes en cabecera, accesibles desde menú de usuario */
+  .header-icon-btn[title="Configuración"],
+  .header-icon-btn[title="Manual de Usuario"] {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-logo-text {
+    font-size: var(--text-lg);
+  }
+  
+  .header-logo-icon {
+    width: 28px;
+    height: 28px;
+    padding: 5px;
   }
 }
 
