@@ -50,8 +50,10 @@ function Settings() {
     try {
       const res = await authFetch('/meetings/history');
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.history)) {
         setMeetingHistory(data.history);
+      } else {
+        setMeetingHistory([]);
       }
     } catch (err) {
       console.error('Error fetching history:', err);
@@ -348,7 +350,7 @@ function Settings() {
                     <div className="history-loading">
                       {[1, 2, 3].map(i => <div key={i} className="skeleton-history-item"></div>)}
                     </div>
-                  ) : meetingHistory.length === 0 ? (
+                  ) : (!meetingHistory || meetingHistory.length === 0) ? (
                     <div className="history-empty">
                       <History size={48} />
                       <p>Aún no has participado en ninguna reunión.</p>

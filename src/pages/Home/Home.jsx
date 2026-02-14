@@ -168,8 +168,10 @@ function Home() {
     try {
       const response = await authFetch('/meetings/list');
       const data = await response.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.meetings)) {
         setMeetingsList(data.meetings);
+      } else {
+        setMeetingsList([]);
       }
     } catch (error) {
       console.error('Error fetching meetings:', error);

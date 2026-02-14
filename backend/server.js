@@ -510,7 +510,7 @@ app.get("/meetings/history", authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
-      meetings: result.rows,
+      history: result.rows,
     });
   } catch (err) {
     console.error("Error fetching meetings:", err);
