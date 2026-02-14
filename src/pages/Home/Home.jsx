@@ -16,10 +16,76 @@ function Home() {
   const [meetingCode, setMeetingCode] = useState('');
   const [showNewMeetingMenu, setShowNewMeetingMenu] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [showScheduleModal, setShowScheduleModal] = useState(false); // 📅 Nuevo modal
-  const [meetingTitle, setMeetingTitle] = useState(''); // 📝 Título
-  const [scheduledDate, setScheduledDate] = useState(''); // ⏰ Fecha/Hora
-  const [organizedBy, setOrganizedBy] = useState(''); // 👤 Organizador
+  const [showCreateModal, setShowCreateModal] = useState(false); // 🆕 Modal unificado
+  const [createMode, setCreateMode] = useState('instant'); // 'instant', 'later', 'scheduled'
+  const [meetingTitle, setMeetingTitle] = useState(''); 
+  const [scheduledDate, setScheduledDate] = useState(''); 
+  const [organizedBy, setOrganizedBy] = useState(''); 
+
+  const handleOpenCreateModal = (mode) => {
+    setCreateMode(mode);
+    setMeetingTitle('');
+    setScheduledDate('');
+    setOrganizedBy(user?.name || '');
+    setShowCreateModal(true);
+    setShowNewMeetingMenu(false);
+  };
+
+  const handleCreateMeeting = async (e) => {
+    e.preventDefault();
+    const meetingId = generateMeetingId();
+    
+    try {
+      const payload = {
+        host_id: user?.id,
+        link: meetingId,
+        meeting_type: createMode,
+        title: meetingTitle, // Opcional para instant/later
+        organized_by: organizedBy || user?.name
+      };
+
+      if (createMode === 'scheduled') {
+        if (!scheduledDate) return toast.error('Debes seleccionar una fecha');
+        payload.scheduled_time = scheduledDate;
+      }
+
+      const response = await authFetch('/meetings/start', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        localStorage.setItem(`host_${meetingId}`, 'true');
+        
+        if (createMode === 'instant') {
+          navigate(`/pre-lobby/${meetingId}`);
+        } else {
+          // Para 'later' y 'scheduled' mostramos el link
+          const urlCompleta = `${window.location.origin}/pre-lobby/${meetingId}`;
+          setGeneratedLink(urlCompleta);
+          setShowCreateModal(false);
+          setShowModal(true);
+          
+          // Refresh list if scheduled/later to show in dashboard
+          fetchMeetings();
+        }
+      } else {
+        toast.error('Error al crear: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Error de conexión');
+    }
+  };
+
+  // ... (existing fetchMeetings, etc)
+
+  // ... (render)
+
+  // ... (dropdown items)
+
   const [showDashboard, setShowDashboard] = useState(false); // 📊 Dashboard
   const [meetingsList, setMeetingsList] = useState([]); // 📋 Lista de reuniones
   const [loadingDashboard, setLoadingDashboard] = useState(false);
@@ -95,104 +161,7 @@ function Home() {
       .join('-');
   };
 
-  const handleNewMeeting = async () => {
-    const meetingId = generateMeetingId();
-    
-    try {
-      // Llamada al backend
-      const response = await authFetch('/meetings/start', {
-        method: 'POST',
-        body: JSON.stringify({
-          host_id: user?.id,
-          link: meetingId,
-          meeting_type: 'instant'
-        }),
-      });
 
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success('¡Reunión instantánea creada!');
-        localStorage.setItem(`host_${meetingId}`, 'true');
-        navigate(`/pre-lobby/${meetingId}`);
-      } else {
-        toast.error('Error al crear la reunión: ' + data.error);
-      }
-    } catch (error) {
-      console.error('Error de red:', error);
-      alert('Error conectando con el servidor. Asegúrate de que el backend esté corriendo (node server.js).');
-    }
-  };
-  
-  const crearParaMasTarde = async () => {
-    const meetingId = generateMeetingId();
-    
-    try {
-      const response = await authFetch('/meetings/start', {
-        method: 'POST',
-        body: JSON.stringify({
-          host_id: user?.id,
-          link: meetingId,
-          meeting_type: 'later'
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        const urlCompleta = `${window.location.origin}/pre-lobby/${meetingId}`;
-        // Guardar que soy el host de esta reunión
-        localStorage.setItem(`host_${meetingId}`, 'true');
-        setGeneratedLink(urlCompleta);
-        setShowModal(true);
-        setShowNewMeetingMenu(false);
-      } else {
-        alert("Error al crear la reunión en el servidor");
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert("No se pudo crear la reunión. Verifica tu conexión.");
-    }
-  };
-
-  const crearProgramada = async (e) => {
-    e.preventDefault();
-    if (!meetingTitle || !scheduledDate) return;
-
-    const meetingId = generateMeetingId();
-    
-    try {
-      const response = await authFetch('/meetings/start', {
-        method: 'POST',
-        body: JSON.stringify({
-          host_id: user?.id,
-          link: meetingId,
-          meeting_type: 'scheduled',
-          title: meetingTitle,
-          scheduled_time: scheduledDate,
-          organized_by: organizedBy || user?.name
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        const urlCompleta = `${window.location.origin}/pre-lobby/${meetingId}`;
-        localStorage.setItem(`host_${meetingId}`, 'true');
-        setGeneratedLink(urlCompleta);
-        setShowScheduleModal(false); // Cerramos el de programar
-        setShowModal(true); // Abrimos el de éxito/copia
-        setMeetingTitle(''); // Limpiamos
-        setScheduledDate('');
-        setOrganizedBy('');
-      } else {
-        alert("Error al programar la reunión");
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert("Error de conexión al programar.");
-    }
-  };
 
   const fetchMeetings = async (isRefresh = false) => {
     if (!isRefresh) setLoadingDashboard(true);
@@ -282,7 +251,7 @@ function Home() {
                     variant="primary" 
                     size="lg" 
                     icon={Video}
-                    onClick={handleNewMeeting}
+                    onClick={() => handleOpenCreateModal('instant')}
                   >
                     Nueva reunión
                   </Button>
@@ -296,24 +265,21 @@ function Home() {
                   
                   {showNewMeetingMenu && (
                     <div className="home-dropdown-menu glass-panel">
-                      <button className="home-dropdown-item" onClick={handleNewMeeting}>
+                      <button className="home-dropdown-item" onClick={() => handleOpenCreateModal('instant')}>
                         <Plus size={20} />
                         <div>
                           <span className="dropdown-item-title">Iniciar reunión instantánea</span>
                           <span className="dropdown-item-desc">Comenzar una reunión ahora</span>
                         </div>
                       </button>
-                      <button className="home-dropdown-item" onClick={crearParaMasTarde}>
+                      <button className="home-dropdown-item" onClick={() => handleOpenCreateModal('later')}>
                         <Link2 size={20} />
                         <div>
                           <span className="dropdown-item-title">Crear una reunión para después</span>
                           <span className="dropdown-item-desc">Obtener un enlace para compartir</span>
                         </div>
                       </button>
-                      <button className="home-dropdown-item" onClick={() => {
-                        setShowScheduleModal(true);
-                        setShowNewMeetingMenu(false);
-                      }}>
+                      <button className="home-dropdown-item" onClick={() => handleOpenCreateModal('scheduled')}>
                         <Calendar size={20} />
                         <div>
                           <span className="dropdown-item-title">Programar en calendario</span>
@@ -387,7 +353,7 @@ function Home() {
               ) : meetingsList.length === 0 ? (
                 <div className="activity-empty glass-panel">
                   <p>No hay reuniones activas en este momento.</p>
-                  <button className="btn-text-action" onClick={handleNewMeeting}>Iniciar una ahora</button>
+                  <button className="btn-text-action" onClick={() => handleOpenCreateModal('instant')}>Iniciar una ahora</button>
                 </div>
               ) : (
                 <div className="activity-grid">
@@ -499,6 +465,7 @@ function Home() {
             <Link to="/privacy">Privacidad</Link>
             <Link to="/cookies">Cookies</Link>
             <Link to="/help">Ayuda</Link>
+            <Link to="/user-manual">Manual de Usuario</Link>
           </nav>
         </div>
       </footer>
@@ -548,74 +515,69 @@ function Home() {
         </div>
       )}
 
-      {/* --- MODAL PARA PROGRAMAR (AGENDA) --- */}
-      {showScheduleModal && (
+      {/* --- MODAL UNIFICADO DE CREACIÓN --- */}
+      {showCreateModal && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
               <div>
-                <h2>Programar nueva reunión</h2>
+                <h2>
+                  {createMode === 'instant' && 'Nueva Reunión Instantánea'}
+                  {createMode === 'later' && 'Reunión para Después'}
+                  {createMode === 'scheduled' && 'Programar Reunión'}
+                </h2>
                 <p style={{ fontSize: '13px', color: '#1a73e8', margin: '4px 0 0 0', fontWeight: '500' }}>
                   Organización: {memberships?.find(m => m.id === user.organization_id)?.name}
                 </p>
               </div>
-              <button className="modal-close-icon" onClick={() => setShowScheduleModal(false)}>×</button>
+              <button className="modal-close-icon" onClick={() => setShowCreateModal(false)}>×</button>
             </div>
-            <form onSubmit={crearProgramada}>
+            <form onSubmit={handleCreateMeeting}>
               <div className="form-group">
-                <label htmlFor="schedule-title" className="form-label">Nombre de la reunión</label>
+                <label className="form-label">Motivo / Título (Opcional)</label>
                 <input 
-                  id="schedule-title"
-                  name="meetingTitle"
                   type="text" 
                   className="home-input schedule-input" 
-                  placeholder="Ej: Reunión sobre alimentación"
+                  placeholder={createMode === 'instant' ? "Ej: Revisión rápida" : "Ej: Reunión Semanal"}
                   value={meetingTitle}
                   onChange={(e) => setMeetingTitle(e.target.value)}
-                  required
                 />
               </div>
 
               <div className="form-group" style={{ marginTop: '16px' }}>
-                <label htmlFor="schedule-organizer" className="form-label">Organizado por</label>
+                <label className="form-label">Organizado por</label>
                 <input 
-                  id="schedule-organizer"
-                  name="organizedBy"
                   type="text" 
                   className="home-input schedule-input" 
-                  placeholder="Ej: Jhoan Gavidia"
+                  placeholder="Tu nombre"
                   value={organizedBy}
                   onChange={(e) => setOrganizedBy(e.target.value)}
-                  required
                 />
               </div>
 
-              <div className="form-group" style={{ marginTop: '16px' }}>
-                <label htmlFor="schedule-date" className="form-label">Fecha y Hora</label>
-                <input 
-                  id="schedule-date"
-                  name="scheduledDate"
-                  type="datetime-local" 
-                  className="home-input schedule-input"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  required
-                  min={new Date().toISOString().slice(0, 16)}
-                />
-              </div>
+              {createMode === 'scheduled' && (
+                <div className="form-group" style={{ marginTop: '16px' }}>
+                  <label className="form-label">Fecha y Hora</label>
+                  <input 
+                    type="datetime-local" 
+                    className="home-input schedule-input"
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    required
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                </div>
+              )}
 
               <div className="modal-info-note">
-                <p>💡 Las reuniones programadas no expiran hasta 24 horas después de su fecha de inicio.</p>
+                 {createMode === 'scheduled' && <p>💡 Las reuniones programadas no expiran hasta 24 horas después.</p>}
+                 {createMode === 'later' && <p>💡 El enlace expirará en 2 horas si no se usa.</p>}
               </div>
 
               <div className="modal-actions">
-                <Button 
-                  variant="primary" 
-                  size="md" 
-                  fullWidth 
-                  type="submit"
-                >
-                  Confirmar y generar link
+                <Button variant="primary" size="md" fullWidth type="submit">
+                  {createMode === 'instant' ? 'Iniciar Ahora' : 
+                   createMode === 'later' ? 'Generar Enlace' : 'Programar'}
                 </Button>
               </div>
             </form>

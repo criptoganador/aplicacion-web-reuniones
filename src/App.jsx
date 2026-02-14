@@ -24,6 +24,7 @@ const Terms = lazy(() => import('./pages/Legal/Terms'));
 const Privacy = lazy(() => import('./pages/Legal/Privacy'));
 const Help = lazy(() => import('./pages/Legal/Help'));
 const CookiePolicy = lazy(() => import('./pages/Legal/CookiePolicy'));
+const UserManual = lazy(() => import('./pages/Legal/UserManual'));
 const Settings = lazy(() => import('./pages/Settings/Settings'));
 const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
 
@@ -60,6 +61,7 @@ function App() {
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/cookies" element={<CookiePolicy />} />
                 <Route path="/help" element={<Help />} />
+                <Route path="/user-manual" element={<UserManual />} />
 
                 {/* Private Routes */}
                 <Route path="/" element={

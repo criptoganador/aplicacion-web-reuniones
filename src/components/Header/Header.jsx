@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Video, Settings, User, ChevronDown, Sun, Moon, LogOut, Trash2, Shield,
-  Leaf, Zap, Snowflake, Grid, Plus, Building
+  Leaf, Zap, Snowflake, Grid, Plus, Building, BookOpen, Bell
 } from 'lucide-react';
 import { useTheme } from '../../context';
 import { useAuth } from '../../context/AuthContext';
@@ -13,7 +13,8 @@ function Header({ showUserMenu = true }) {
   const { theme, setTheme } = useTheme();
   const { 
     user, isAuthenticated, logout, deleteAccount, 
-    memberships, switchOrganization, createOrganization 
+    memberships, switchOrganization, createOrganization,
+    authFetch 
   } = useAuth();
   const navigate = useNavigate();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
@@ -34,12 +35,129 @@ function Header({ showUserMenu = true }) {
   const themeMenuRef = useRef(null);
   const userMenuRef = useRef(null);
   const orgSwitcherRef = useRef(null);
+  // Sound Effect (Pop/Ding) - Base64 to avoid asset issues
+  const playNotificationSound = () => {
+    try {
+      const audio = new Audio("data:audio/mp3;base64,//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//uQxAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq");
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log("Audio autoplay prevented:", e));
+    } catch (e) {
+      console.error("Error playing notification sound", e);
+    }
+  };
+
+  const timeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 60) return 'Hace un momento';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `Hace ${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Hace ${hours} h`;
+    return date.toLocaleDateString();
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'meeting_invite': return <Video size={16} className="text-blue-400" />;
+      case 'system_alert': return <Shield size={16} className="text-red-400" />;
+      case 'info': return <BookOpen size={16} className="text-green-400" />;
+      default: return <Bell size={16} className="text-gray-400" />;
+    }
+  };
+
+  // Track previous unread count to trigger sound/toast
+  const prevUnreadCountRef = useRef(0);
+  // Notification state (was missing, causing ReferenceError when Header mounted)
+  const notificationRef = useRef(null);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    if (unreadCount > prevUnreadCountRef.current) {
+      // New notification arrived!
+      playNotificationSound();
+      
+      // Find the newest notification to show in toast
+      if (notifications.length > 0) {
+        const newest = notifications[0];
+        toast.info(newest.message, {
+          description: timeAgo(newest.created_at),
+          icon: <Bell size={16} />,
+          duration: 4000,
+        });
+      }
+    }
+    prevUnreadCountRef.current = unreadCount;
+  }, [unreadCount, notifications]);
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await authFetch('/api/notifications');
+      const data = await res.json();
+      if (data.success) {
+        // Compare with current state to avoid unnecessary renders
+        // Only update if count changed or first load
+        if (data.unreadCount !== unreadCount || notifications.length === 0) {
+           setNotifications(data.notifications);
+           setUnreadCount(data.unreadCount);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000); // Poll every 30s (more frequent)
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  const handleNotificationClick = async (notif) => {
+    try {
+      if (!notif.is_read) {
+        await authFetch(`/api/notifications/${notif.id}/read`, {
+          method: 'PUT'
+        });
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+      }
+      setShowNotifications(false);
+      navigate(notif.link);
+    } catch (err) {
+      console.error('Error handling notification:', err);
+    }
+  };
+
+  const markAllRead = async () => {
+    try {
+      await authFetch('/api/notifications/read-all', {
+        method: 'PUT'
+      });
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      toast.success("Todas las notificaciones marcadas como leídas");
+    } catch (err) {
+      console.error('Error marking all read:', err);
+    }
+  };
 
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (themeMenuRef.current && !themeMenuRef.current.contains(event.target)) {
         setShowThemeMenu(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
       }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserDropdown(false);
@@ -185,6 +303,57 @@ function Header({ showUserMenu = true }) {
       
       {showUserMenu && (
         <div className="header-right">
+          <div className="notification-container" ref={notificationRef}>
+            <button 
+              className={`header-icon-btn ${showNotifications ? 'active' : ''}`}
+              onClick={() => setShowNotifications(!showNotifications)}
+              title="Notificaciones"
+            >
+              <Bell size={20} className={unreadCount > 0 ? "bell-shake" : ""} />
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+            </button>
+
+            {showNotifications && (
+              <div className="notifications-dropdown glass-panel show">
+                <div className="notifications-header">
+                  <span className="notif-title">Notificaciones</span>
+                  {unreadCount > 0 && (
+                    <button className="mark-read-btn" onClick={markAllRead}>
+                      Marcar leídas
+                    </button>
+                  )}
+                </div>
+                <div className="notifications-list">
+                  {notifications.length === 0 ? (
+                    <div className="no-notifications">
+                      <Bell size={24} className="empty-icon" />
+                      <p>No tienes notificaciones</p>
+                    </div>
+                  ) : (
+                    notifications.map(notif => (
+                      <div 
+                        key={notif.id} 
+                        className={`notification-item ${!notif.is_read ? 'unread' : ''}`}
+                        onClick={() => handleNotificationClick(notif)}
+                      >
+                        <div className={`notif-icon-wrapper ${notif.type || 'default'}`}>
+                          {getNotificationIcon(notif.type)}
+                        </div>
+                        <div className="notif-content">
+                          <p className="notif-message">{notif.message}</p>
+                          <span className="notif-time">
+                            {timeAgo(notif.created_at)}
+                          </span>
+                        </div>
+                        {!notif.is_read && <div className="unread-dot"></div>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="theme-selector-container" ref={themeMenuRef}>
             <button 
               className={`header-icon-btn theme-toggle-btn ${theme}`} 
@@ -219,6 +388,14 @@ function Header({ showUserMenu = true }) {
             )}
           </div>
           
+          <button 
+            className="header-icon-btn" 
+            title="Manual de Usuario"
+            onClick={() => navigate('/user-manual')}
+          >
+            <BookOpen size={20} />
+          </button>
+
           <button 
             className="header-icon-btn" 
             title="Configuración"

@@ -3,8 +3,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { 
   Copy, Check, PhoneOff, Users, MessageSquare, X, Send, Paperclip, FileText, ExternalLink, Smile, Download, Bold, Italic, Palette, Underline as UnderlineIcon,
-  Volume2, VolumeX, CornerUpLeft, ArrowDown, CheckCheck, Crown, Shield, Maximize2, Minimize2,
-  Type, Hand, Mic, MicOff, Video, VideoOff, Circle, Square
+  Volume2, VolumeX, CornerUpLeft, ArrowDown, CheckCheck, Crown, Shield,
+  Type, Hand, Mic, MicOff, Video, VideoOff, Circle, Square, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -201,11 +201,11 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   const [raisedHands, setRaisedHands] = useState({});
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
-  const [controlSize, setControlSize] = useState('normal');
   const [floatingReactions, setFloatingReactions] = useState([]);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
   const [activeCaptions, setActiveCaptions] = useState({});
   const [isRecording, setIsRecording] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   
   const recognitionRef = useRef(null);
   const recorderRef = useRef(null);
@@ -214,21 +214,44 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   const { chatMessages, send } = useChat();
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
+  const { user, memberships } = useAuth(); // Get auth info
+  
+  const [isOrgCopied, setIsOrgCopied] = useState(false);
+
+  // Logic for displaying Org Code
+  const currentOrg = memberships.find(m => m.id === user?.organization_id);
+  const isOrgAdmin = currentOrg?.role === 'admin';
+  const orgJoinCode = currentOrg?.join_code;
+  const canShowOrgCode = isHost && isOrgAdmin && orgJoinCode;
+
+  const copyOrgCode = () => {
+    if (orgJoinCode) {
+      navigator.clipboard.writeText(orgJoinCode);
+      setIsOrgCopied(true);
+      toast.success("Código de organización copiado");
+      setTimeout(() => setIsOrgCopied(false), 2000);
+    }
+  };
   
   // --- RECORDING LOGIC ---
   const startRecording = async () => {
     try {
+      toast.info("Para grabar la reunión, elige 'Esta pestaña' (o 'Microsoft Edge Tab') y marca la casilla 'Compartir audio'", {
+        duration: 6000,
+        position: 'top-center'
+      });
+
       // 1. Capture stream with system audio
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           cursor: "always",
           displaySurface: "browser"
         },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        }
+        audio: true, // Simplificado para mejor soporte
+        // @ts-ignore
+        preferCurrentTab: true,
+        selfBrowserSurface: 'include',
+        systemAudio: 'include'
       });
 
       recordingStreamRef.current = stream;
@@ -358,17 +381,6 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
       }
   };
 
-  const toggleControlSize = () => {
-    setControlSize(prev => {
-      let newSize;
-      if (prev === 'normal') newSize = 'large';
-      else if (prev === 'large') newSize = 'mini';
-      else newSize = 'normal';
-      
-      toast.success(`Tamaño de controles: ${newSize === 'normal' ? 'Normal' : newSize === 'large' ? 'Grande' : 'Mini'}`);
-      return newSize;
-    });
-  };
 
   const triggerFloatingReaction = (identity, emoji) => {
     const id = Date.now() + Math.random();
@@ -743,36 +755,145 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
         )}
       </div>
 
-      <div className={`custom-control-bar-wrapper control-size-${controlSize}`}>
+      <div className="custom-control-bar-wrapper">
         <div className="meeting-info-pill-docked">
           <span className="meeting-id-text">{meetingId}</span>
-          <button className="pill-copy-btn" onClick={copyMeetingLink} title="Copiar enlace">
-            {isCopied ? <Check size={16} style={{ color: '#10b981' }} /> : <Copy size={16} />}
-          </button>
+          <div className="hide-on-mobile">
+            <button className="pill-copy-btn" onClick={copyMeetingLink} title="Copiar enlace de reunión">
+              {isCopied ? <Check size={16} style={{ color: '#10b981' }} /> : <Copy size={16} />}
+            </button>
+          </div>
+          
+          {canShowOrgCode && (
+            <>
+              <div className="hide-on-mobile" style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.2)', margin: '0 8px' }}></div>
+                <span className="meeting-id-text" style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ opacity: 0.6, fontSize: '10px', textTransform: 'uppercase' }}>ORG:</span>
+                  {orgJoinCode}
+                </span>
+                <button className="pill-copy-btn" onClick={copyOrgCode} title="Copiar código de organización">
+                  {isOrgCopied ? <Check size={16} style={{ color: '#10b981' }} /> : <Copy size={16} />}
+                </button>
+              </div>
+            </>
+          )}
         </div>
         <ControlBar 
           variation="minimal" 
           controls={{ chat: false }} 
         />
         <button 
-          className={`lk-button lk-raise-hand-toggle ${isHandRaised ? 'active' : ''}`}
+          className="lk-button more-menu-btn"
+          onClick={() => setShowMoreMenu(!showMoreMenu)}
+          title="Más opciones"
+        >
+          <MoreVertical size={20} />
+        </button>
+
+        {showMoreMenu && (
+          <div className="more-menu-dropdown">
+            <button 
+              className={`lk-button lk-raise-hand-toggle ${isHandRaised ? 'active' : ''}`}
+              onClick={() => { toggleRaiseHand(); setShowMoreMenu(false); }}
+              title={isHandRaised ? "Bajar la mano" : "Levantar la mano"}
+            >
+              <Hand size={20} />
+              <span>Levantar mano</span>
+            </button>
+            
+
+            <button 
+              className={`lk-button control-btn-cc ${isCaptionsOn ? 'active' : ''}`}
+              onClick={() => { setIsCaptionsOn(!isCaptionsOn); setShowMoreMenu(false); }}
+              title="Subtítulos"
+            >
+              <Type size={20} />
+              <span>Subtítulos</span>
+              {isCaptionsOn && <span className="btn-status-dot"></span>}
+            </button>
+
+            {isHost && (
+              <button 
+                className={`lk-button lk-participants-toggle ${showParticipants ? 'active' : ''}`}
+                onClick={() => { setShowParticipants(!showParticipants); setShowMoreMenu(false); }}
+                title="Participantes"
+              >
+                <Users size={20} />
+                <span>Participantes</span>
+              </button>
+            )}
+
+            {/* Mobile-only: move org code actions into the More menu to avoid overlap on small screens */}
+            {canShowOrgCode && (
+              <button
+                className={`lk-button show-on-mobile-only mobile-org-copy`}
+                onClick={() => { copyOrgCode(); setShowMoreMenu(false); }}
+                title="Copiar código de organización"
+              >
+                <Copy size={18} />
+                <span>Copiar código de organización</span>
+              </button>
+            )}
+
+            {/* Mobile-only: copy meeting link action placed in More menu */}
+            <button
+              className={`lk-button show-on-mobile-only mobile-meeting-copy`}
+              onClick={() => { copyMeetingLink(); setShowMoreMenu(false); }}
+              title="Copiar enlace de reunión"
+            >
+              <Copy size={18} />
+              <span>Copiar enlace de reunión</span>
+            </button>
+
+            {isHost && (
+              <button 
+                className={`lk-button control-btn-record ${isRecording ? 'active' : ''}`}
+                onClick={() => { isRecording ? stopRecording() : startRecording(); setShowMoreMenu(false); }}
+                title="Grabar"
+              >
+                {isRecording ? <Square size={20} fill="#ef4444" color="#ef4444" /> : <Circle size={20} />}
+                <span>{isRecording ? "Detener grabación" : "Grabar"}</span>
+                {isRecording && <span className="recording-dot-pulser"></span>}
+              </button>
+            )}
+
+            <button 
+              className={`lk-button lk-chat-toggle ${showChat ? 'active' : ''}`}
+              onClick={() => { setShowChat(!showChat); setShowMoreMenu(false); }}
+              title="Chat"
+            >
+              <MessageSquare size={20} />
+              <span>Chat {unreadCount > 0 ? `(${unreadCount})` : ''}</span>
+              {unreadCount > 0 && <span className="notification-dot" style={{ top: 'auto', right: '12px', position: 'absolute' }}></span>}
+            </button>
+
+            {isHost && (
+              <button 
+                className="lk-button end-meeting-btn" 
+                onClick={() => { handleEndMeeting(); setShowMoreMenu(false); }}
+                title="Finalizar reunión"
+                style={{ color: '#ef4444' }}
+              >
+                <PhoneOff size={20} />
+                <span>Finalizar reunión</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        <button 
+          className={`lk-button lk-raise-hand-toggle desktop-only ${isHandRaised ? 'active' : ''}`}
           onClick={toggleRaiseHand}
           title={isHandRaised ? "Bajar la mano" : "Levantar la mano"}
         >
           <Hand size={20} />
         </button>
 
-        <button 
-          className="lk-button toggle-size-btn"
-          onClick={toggleControlSize}
-          title="Cambiar tamaño de controles"
-        >
-          {controlSize === 'large' ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-        </button>
 
         {/* Botón de Subtítulos (CC) */}
         <button 
-          className={`lk-button control-btn-cc ${isCaptionsOn ? 'active' : ''}`}
+          className={`lk-button control-btn-cc desktop-only ${isCaptionsOn ? 'active' : ''}`}
           onClick={() => setIsCaptionsOn(!isCaptionsOn)}
           title={isCaptionsOn ? "Desactivar subtítulos" : "Activar subtítulos"}
         >
@@ -782,7 +903,7 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
 
         {isHost && (
           <button 
-            className={`lk-button lk-participants-toggle ${showParticipants ? 'active' : ''}`}
+            className={`lk-button lk-participants-toggle desktop-only ${showParticipants ? 'active' : ''}`}
             onClick={() => setShowParticipants(!showParticipants)}
             title="Participantes"
           >
@@ -791,7 +912,7 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
         )}
         {isHost && (
           <button 
-            className={`lk-button control-btn-record ${isRecording ? 'active' : ''}`}
+            className={`lk-button control-btn-record desktop-only ${isRecording ? 'active' : ''}`}
             onClick={isRecording ? stopRecording : startRecording}
             title={isRecording ? "Detener grabación" : "Grabar reunión"}
           >
@@ -800,7 +921,7 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
           </button>
         )}
         <button 
-          className={`lk-button lk-chat-toggle ${showChat ? 'active' : ''}`}
+          className={`lk-button lk-chat-toggle desktop-only ${showChat ? 'active' : ''}`}
           onClick={() => {
              console.log("Chat toggled", !showChat);
              setShowChat(!showChat);
@@ -812,7 +933,7 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
         </button>
         {isHost && (
           <button 
-            className="lk-button end-meeting-btn" 
+            className="lk-button end-meeting-btn desktop-only" 
             onClick={handleEndMeeting}
             title="Finalizar reunión para todos"
           >
@@ -1100,15 +1221,20 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
   const scrollRef = useRef(null);
   const lastMsgCount = useRef(0);
 
+
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging) return;
       let newX = e.clientX - dragOffset.current.x;
       let newY = e.clientY - dragOffset.current.y;
       
-      // Bounds checks (optional but recommended)
-      newX = Math.max(0, Math.min(newX, window.innerWidth - 350));
-      newY = Math.max(0, Math.min(newY, window.innerHeight - 400));
+      // Dynamic threshold based on screen size
+      const currentChatWidth = window.innerWidth <= 530 ? (window.innerWidth * 0.9) : chatSize.width;
+      
+      // Bounds checks
+      newX = Math.max(0, Math.min(newX, window.innerWidth - currentChatWidth - 10));
+      // Relaxed constraint: Allow dragging anywhere, just keep header somewhat visible
+      newY = Math.max(0, Math.min(newY, window.innerHeight - 40));
       
       setChatPos({ x: newX, y: newY });
     };
@@ -1143,6 +1269,42 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
 
   // RESIZING LOGIC
   const [chatSize, setChatSize] = useState({ width: 350, height: 500 });
+
+  // Keep chat in bounds on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setChatPos(prev => {
+        let newX = prev.x;
+        let newY = prev.y;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        
+        // Dynamic threshold based on screen size
+        const currentChatWidth = width <= 530 ? (width * 0.9) : chatSize.width;
+        
+        // If window shrinks or is small, push chat back into view
+        if (newX + currentChatWidth > width - 10) {
+          newX = Math.max(0, width - currentChatWidth - 20);
+        }
+        // Relaxed constraint: Allow resize near bottom
+        if (newY + chatSize.height > height) {
+          newY = Math.max(0, height - chatSize.height);
+        }
+
+        // Center if screen is very narrow
+        if (width <= 530) {
+           newX = (width - currentChatWidth) / 2;
+        }
+        
+        return { x: newX, y: newY };
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    // Trigger once on mount/initialization to ensure correct placement
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [chatSize.width, chatSize.height]);
   const [isResizing, setIsResizing] = useState(false);
   const resizeDir = useRef(''); // 'n', 's', 'e', 'w', etc.
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0, xPos: 0, yPos: 0 });
@@ -1178,6 +1340,15 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
           if (potentialHeight >= 400) {
             newHeight = potentialHeight;
             newY = resizeStart.current.yPos + deltaY;
+          }
+        }
+        
+        // Enforce bottom constraint during resize (relaxed)
+        if (newY + newHeight > window.innerHeight) {
+          newHeight = window.innerHeight - newY;
+          if (newHeight < 350) { // Minimum height check
+            newHeight = 350;
+            newY = Math.max(0, window.innerHeight - 350);
           }
         }
         
@@ -1342,6 +1513,33 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
     return () => room.off('dataReceived', handleData);
   }, [room, localParticipant.identity]);
 
+  const playNotificationSound = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      // Gentle "Pop" sound
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.15);
+
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch (e) {
+      // Ignore audio errors (e.g. strict autoplay policy)
+    }
+  };
+
   // SMART AUTOSCROLL & NEW MESSAGE INDICATOR
   useEffect(() => {
     const el = scrollRef.current;
@@ -1357,6 +1555,11 @@ function CustomChat({ onClose, meetingId, visible, isMuted, onToggleMute, onSend
         setShowScrollBottom(false);
       } else {
         setShowScrollBottom(true);
+      }
+      
+      // Play sound for incoming remote messages
+      if (!lastMsgWasLocal) {
+        playNotificationSound();
       }
     }
     lastMsgCount.current = chatMessages.length;
