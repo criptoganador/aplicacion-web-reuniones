@@ -10,7 +10,11 @@ export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl:
     process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
+      ? {
+          rejectUnauthorized: false,
+          // Evitar warning de pg/pg-connection-string v3
+          sslmode: "verify-full",
+        }
       : false,
 });
 
