@@ -3405,17 +3405,17 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: "Error interno del servidor" });
 });
 
-// Exportar para Firebase Functions
-export default app;
-export { app };
+// --- INICIO ROBUSTO (Para Render/Despliegues) ---
+// Forzar el inicio del servidor si estamos en Render o si hay un puerto definido y no es una importación silenciosa
+const PORT_TO_LIVE = process.env.PORT || 10000;
 
-// --- INICIO ROBUSTO (Para Render/Despliegues directos) ---
-// Si Render intenta ejecutar 'node server.js' directamente, esto asegura que escuche el puerto
-if (process.argv[1].endsWith("server.js") || process.env.RENDER) {
-  const FALLBACK_PORT = process.env.PORT || 10000;
-  app.listen(FALLBACK_PORT, "0.0.0.0", () => {
-    console.log(
-      `🚀 [DERECHO] SERVIDOR ESCUCHANDO EN PUERTO: ${FALLBACK_PORT} (Desde server.js)`,
-    );
+// Intentar escuchar siempre en Render para evitar "Port scan timeout"
+if (process.env.RENDER || (process.env.PORT && !process.env.IS_IMPORT)) {
+  app.listen(PORT_TO_LIVE, "0.0.0.0", () => {
+    console.log(`🚀 [BACKEND-OK] Servidor activo en puerto: ${PORT_TO_LIVE}`);
+    console.log(`📡 Entorno: ${process.env.NODE_ENV || "production"}`);
   });
 }
+
+export default app;
+export { app };
