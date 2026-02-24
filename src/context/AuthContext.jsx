@@ -5,36 +5,32 @@ const AuthContext = createContext();
 // ✨ HYBRID MODE: Check if Electron injected a local API URL
 // This is now a function to always get the latest value
 const getApiUrl = () => {
-  let url = 'https://asicme-meet-backend.onrender.com'; // Default production API
-
+  let url = 'https://asicme-meet-backend.onrender.com'; // Fallback producción
   const isDev = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
 
-  // 1. Electron check
-  if (typeof window !== 'undefined' && window.electron) {
+  // 1. Prioridad: Variable de entorno definida en el build (Vite)
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
+    url = import.meta.env.VITE_API_URL;
+  }
+  // 2. Si estamos en Electron, buscar configuración inyectada
+  else if (typeof window !== 'undefined' && window.electron) {
     if (window.electron.getBackendPort) {
       const port = window.electron.getBackendPort();
       if (port) url = `http://localhost:${port}`;
     } else if (window.electron.getLocalApiUrl) {
       const localUrl = window.electron.getLocalApiUrl();
       if (localUrl) url = localUrl;
-    } else if (isDev) {
-      // Fallback for Electron in development mode
-      url = import.meta.env.VITE_API_URL || 'http://localhost:4000';
     }
   } 
-  // 2. Browser Development environment check
-  else if (isDev) {
-    url = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-  }
-  // 3. Environment Variable check
-  else if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
-    url = import.meta.env.VITE_API_URL;
+  
+  // 3. Fallback de desarrollo para navegador
+  if (isDev && url === 'https://asicme-meet-backend.onrender.com') {
+    url = 'http://localhost:4000';
   }
 
-
-  // Debug log
+  // Debug log (una sola vez)
   if (typeof window !== 'undefined' && !window._apiUrlLogged) {
-    console.log(`🌐 [API] Using endpoint: ${url}`);
+    console.log(`🌐 [API] Conectando a: ${url}`);
     window._apiUrlLogged = true;
   }
 

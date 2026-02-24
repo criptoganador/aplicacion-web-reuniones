@@ -27,7 +27,7 @@ const TitleBar = () => {
         <div className="titlebar-icon">
           <Video size={16} color="#1a73e8" />
         </div>
-        <div className="titlebar-title">ASICME Meet</div>
+        <div className="titlebar-title">ASICME Conferencias</div>
       </div>
 
       <div className="titlebar-controls">

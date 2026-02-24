@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from './context';
@@ -40,7 +40,7 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <ErrorBoundary>
-          <BrowserRouter>
+          <HashRouter>
           <div className="app">
             <WindowResizerSimple />
             <TitleBar />
@@ -93,7 +93,7 @@ function App() {
               </Suspense>
             </div>
           </div>
-        </BrowserRouter>
+        </HashRouter>
       </ErrorBoundary>
     </AuthProvider>
     </ThemeProvider>

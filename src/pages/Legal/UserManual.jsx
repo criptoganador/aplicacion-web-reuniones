@@ -32,7 +32,7 @@ const UserManual = () => {
         <section>
           <h2><Info size={24} color="var(--color-primary)" /> 1. Introducción</h2>
           <p>
-            Bienvenido a <strong>ASICME Meet</strong>. Esta plataforma ha sido diseñada para ofrecer una experiencia de colaboración fluida, segura y profesional. Ya sea que estés organizando un seminario web o una reunión de equipo rápida, aquí encontrarás todo lo necesario para tener éxito.
+            Bienvenido a <strong>ASICME Conferencias</strong>. Esta plataforma ha sido diseñada para ofrecer una experiencia de colaboración fluida, segura y profesional. Ya sea que estés organizando un seminario web o una reunión de equipo rápida, aquí encontrarás todo lo necesario para tener éxito.
           </p>
         </section>
 
@@ -146,7 +146,7 @@ const UserManual = () => {
         </section>
 
         <div className="legal-footer">
-          <p>© 2026 ASICME Meet. Guía versión 2.0</p>
+          <p>© 2026 ASICME Conferencias. Guía versión 2.0</p>
           <div style={{ marginTop: '20px' }}>
             <Link to="/help" className="contact-btn" style={{ textDecoration: 'none' }}>¿Problemas técnicos? Contactar Soporte</Link>
           </div>

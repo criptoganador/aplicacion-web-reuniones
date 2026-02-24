@@ -33,28 +33,37 @@ cloudinary.config({
 });
 
 // Configuración de CORS dinámica
+// Configuración de CORS dinámica
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  process.env.FRONTEND_URL,
-  // 🟢 Render permite usar comodines o URLs dinámicas aquí
+  "https://app-frontend-z9ej.onrender.com",
 ].filter(Boolean);
+
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Log para depuración
+    // Normalizar origen (quitar slash final si existe)
+    const normalizedOrigin = origin ? origin.replace(/\/$/, "") : null;
+
+    // Log para depuración exacta
     console.log(
-      `🔍 CORS attempt from: ${origin || "no-origin"} | Allowed: ${JSON.stringify(allowedOrigins)}`,
+      `🔍 CORS request from: ${origin || "no-origin"} | Normalized: ${normalizedOrigin || "N/A"}`,
     );
 
     if (
       !origin ||
-      allowedOrigins.indexOf(origin) !== -1 ||
+      allowedOrigins.some((o) => o.replace(/\/$/, "") === normalizedOrigin) ||
       process.env.NODE_ENV !== "production"
     ) {
       callback(null, true);
     } else {
-      console.warn(`❌ CORS bloqueado para: ${origin}`);
+      console.warn(
+        `❌ CORS bloqueado para: ${origin}. No está en la lista: ${JSON.stringify(allowedOrigins)}`,
+      );
       callback(null, false);
     }
   },
@@ -287,6 +296,8 @@ app.use(
           "'self'",
           "http://localhost:4000",
           "http://127.0.0.1:4000",
+          "https://asicme-meet-backend.onrender.com",
+          "https://app-frontend-z9ej.onrender.com",
           "wss://*.livekit.cloud",
           "https://*.livekit.cloud",
         ],
@@ -3421,14 +3432,17 @@ if (process.env.RENDER || (process.env.PORT && !process.env.IS_IMPORT)) {
 // Render apaga el servicio tras 15 min de inactividad. Esto lo mantiene despierto.
 const SELF_URL = process.env.SELF_PING_URL || process.env.RENDER_EXTERNAL_URL;
 if (SELF_URL) {
-  setInterval(async () => {
-    try {
-      console.log(`📡 Auto-ping: ${SELF_URL}`);
-      await fetch(SELF_URL);
-    } catch (err) {
-      console.error("❌ Error en Auto-ping:", err.message);
-    }
-  }, 12 * 60 * 1000); // 12 minutos (antes de los 15 min de Render)
+  setInterval(
+    async () => {
+      try {
+        console.log(`📡 Auto-ping: ${SELF_URL}`);
+        await fetch(SELF_URL);
+      } catch (err) {
+        console.error("❌ Error en Auto-ping:", err.message);
+      }
+    },
+    12 * 60 * 1000,
+  ); // 12 minutos (antes de los 15 min de Render)
 }
 
 export default app;

@@ -70,7 +70,7 @@ function Register() {
             <h2 style={{ fontSize: '24px', marginBottom: '12px', color: '#202124' }}>¡Registro completado!</h2>
             <p style={{ color: '#5f6368', marginBottom: '24px', lineHeight: '1.5' }}>
               Tu cuenta ha sido creada con éxito. 
-              Ya puedes iniciar sesión para empezar a usar ASICME Meet.
+              Ya puedes iniciar sesión para empezar a usar ASICME Conferencias.
             </p>
             <Button 
               variant="primary" 

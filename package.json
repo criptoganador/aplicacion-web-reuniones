@@ -1,5 +1,5 @@
 {
-  "name": "mi-proyecto-react",
+  "name": "asicme-conferencias",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -14,9 +14,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "npx concurrently \"npx cross-env ELECTRON_BUILD=true npm run dev\" \"npx wait-on http://localhost:5173 && npx cross-env ELECTRON_START_URL=http://localhost:5173 npm run electron\"",
+    "electron:dev": "electron .",
     "electron:build": "npm run package",
-    "package": "npx cross-env ELECTRON_BUILD=true npm run build && npx cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder"
+    "package": "npx cross-env ELECTRON_BUILD=true electron-builder"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -35,7 +35,7 @@
   },
   "build": {
     "appId": "com.asicme.meet",
-    "productName": "ASICME Conferencia",
+    "productName": "ASICME Conferencias",
     "copyright": "Copyright © 2025 ASICME",
     "directories": {
       "output": "dist-electron"
@@ -63,7 +63,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ASICME Conferencia",
+      "shortcutName": "ASICME Conferencias",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   },

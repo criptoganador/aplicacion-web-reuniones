@@ -23,7 +23,7 @@ const Privacy = () => {
         <section>
           <h2>1. Información que Recopilamos</h2>
           <p>
-            En <strong>ASICME Meet</strong>, nos tomamos muy en serio tu privacidad. Solo recopilamos la información necesaria 
+            En <strong>ASICME Conferencias</strong>, nos tomamos muy en serio tu privacidad. Solo recopilamos la información necesaria 
             para proporcionarte un servicio de videoconferencias seguro y eficiente.
           </p>
           <div className="feature-grid">

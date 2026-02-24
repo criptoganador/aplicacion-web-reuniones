@@ -227,7 +227,7 @@ function Home() {
                 <br />para equipos profesionales
               </h1>
               <p className="home-subtitle">
-                ASICME Meet ofrece videoconferencias seguras y de alta calidad 
+                ASICME Conferencias ofrece videoconferencias seguras y de alta calidad 
                 para tu empresa. Comunicación en tiempo real sin complicaciones.
               </p>
               
@@ -423,7 +423,7 @@ function Home() {
           )}
           
           <div className="home-divider">
-            <span>o aprende más sobre ASICME Meet</span>
+            <span>o aprende más sobre ASICME Conferencias</span>
           </div>
           
           <div className="home-features">

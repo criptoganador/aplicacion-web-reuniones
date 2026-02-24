@@ -2539,7 +2539,7 @@ function MeetingEndedScreen({ summary, onGoHome, onRejoin }) {
         </div>
         
         <h1 className="ended-title">La reunión ha finalizado</h1>
-        <p className="ended-subtitle">Gracias por usar ASICME Meet.</p>
+        <p className="ended-subtitle">Gracias por usar ASICME Conferencias.</p>
 
         <div className="ended-stats">
           <div className="stat-item">
@@ -2563,7 +2563,7 @@ function MeetingEndedScreen({ summary, onGoHome, onRejoin }) {
         </div>
 
         <div className="ended-footer">
-          ASICME Meet &copy; 2026 - Conexión Segura
+          ASICME Conferencias &copy; 2026 - Conexión Segura
         </div>
       </div>
     </div>

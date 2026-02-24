@@ -24,7 +24,7 @@ const Terms = () => {
         <section>
           <h2>1. Introducción</h2>
           <p>
-            Bienvenido a <strong>ASICME Meet</strong>. Al acceder y utilizar nuestra plataforma de videoconferencias, 
+            Bienvenido a <strong>ASICME Conferencias</strong>. Al acceder y utilizar nuestra plataforma de videoconferencias, 
             aceptas cumplir con los siguientes términos y condiciones. Si no estás de acuerdo con alguna parte de estos términos, 
             te rogamos que no utilices nuestros servicios.
           </p>
@@ -45,7 +45,7 @@ const Terms = () => {
             </div>
           </div>
           <p>
-            ASICME Meet se reserva el derecho de suspender o cancelar cuentas que violen nuestras políticas de uso, 
+            ASICME Conferencias se reserva el derecho de suspender o cancelar cuentas que violen nuestras políticas de uso, 
             incluyendo pero no limitado a la transmisión de contenido ilegal, acoso, o intentos de vulnerar la seguridad de la plataforma.
           </p>
         </section>
@@ -53,7 +53,7 @@ const Terms = () => {
         <section>
           <h2>3. Propiedad Intelectual</h2>
           <p>
-            El contenido, diseño, logotipos y software de ASICME Meet son propiedad exclusiva de ASICME y están protegidos 
+            El contenido, diseño, logotipos y software de ASICME Conferencias son propiedad exclusiva de ASICME y están protegidos 
             por las leyes de propiedad intelectual internacionales. No se permite la reproducción, distribución o modificación 
             sin autorización expresa.
           </p>
@@ -62,7 +62,7 @@ const Terms = () => {
         <section>
           <h2>4. Limitación de Responsabilidad</h2>
           <p>
-            ASICME Meet se proporciona "tal cual". No garantizamos que el servicio sea ininterrumpido o libre de errores. 
+            ASICME Conferencias se proporciona "tal cual". No garantizamos que el servicio sea ininterrumpido o libre de errores. 
             En ningún caso ASICME será responsable de daños indirectos, incidentales o consecuentes derivados del uso del servicio.
           </p>
         </section>
