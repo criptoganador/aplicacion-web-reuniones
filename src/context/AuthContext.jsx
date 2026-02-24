@@ -7,6 +7,8 @@ const AuthContext = createContext();
 const getApiUrl = () => {
   let url = 'https://asicme-meet-backend.onrender.com'; // Default production API
 
+  const isDev = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV;
+
   // 1. Electron check
   if (typeof window !== 'undefined' && window.electron) {
     if (window.electron.getBackendPort) {
@@ -15,18 +17,20 @@ const getApiUrl = () => {
     } else if (window.electron.getLocalApiUrl) {
       const localUrl = window.electron.getLocalApiUrl();
       if (localUrl) url = localUrl;
+    } else if (isDev) {
+      // Fallback for Electron in development mode
+      url = import.meta.env.VITE_API_URL || 'http://localhost:4000';
     }
-    // Note: If no local URL/port is provided by Electron, 
-    // it will keep the default production URL defined above.
   } 
-  // 2. Development environment check
-  else if (import.meta.env.DEV) {
+  // 2. Browser Development environment check
+  else if (isDev) {
     url = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   }
   // 3. Environment Variable check
-  else if (import.meta.env.VITE_API_URL) {
+  else if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
     url = import.meta.env.VITE_API_URL;
   }
+
 
   // Debug log
   if (typeof window !== 'undefined' && !window._apiUrlLogged) {

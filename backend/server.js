@@ -8,7 +8,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path"; // Import path
 import multer from "multer"; // Import multer
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
@@ -334,39 +334,59 @@ app.use(
   express.static(uploadDir),
 );
 
-// ENDPOINT DE SUBIDA (Híbrido: Firebase o Local)
+// ENDPOINT DE SUBIDA (Híbrido: Cloudinary con Fallback Local)
 app.post("/upload", upload.single("file"), async (req, res) => {
-  console.log("📂 Upload endpoint hit! Mode: Cloudinary");
-
   if (!req.file) {
     return res.status(400).json({ error: "No se envió ningún archivo" });
   }
 
   const { meeting_id } = req.body;
+  const isCloudinaryConfigured =
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET;
 
   try {
-    // 🔥 Audit Fix: Subida directa a Cloudinary desde memoria
-    const uploadToCloudinary = () => {
-      return new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "asicme_meet_uploads",
-            resource_type: "auto",
-            public_id: `${Date.now()}-${req.file.originalname.replace(/\.[^/.]+$/, "").replace(/\s+/g, "_")}`,
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          },
-        );
-        stream.end(req.file.buffer);
-      });
-    };
+    let publicUrl = "";
 
-    const result = await uploadToCloudinary();
-    const publicUrl = result.secure_url;
+    if (isCloudinaryConfigured) {
+      console.log("📂 Uploading to Cloudinary...");
+      const uploadToCloudinary = () => {
+        return new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            {
+              folder: "asicme_meet_uploads",
+              resource_type: "auto",
+              public_id: `${Date.now()}-${req.file.originalname.replace(/\.[^/.]+$/, "").replace(/\s+/g, "_")}`,
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            },
+          );
+          stream.end(req.file.buffer);
+        });
+      };
 
-    console.log("✅ File uploaded to Cloudinary:", publicUrl);
+      const result = await uploadToCloudinary();
+      publicUrl = result.secure_url;
+      console.log("✅ File uploaded to Cloudinary:", publicUrl);
+    } else {
+      console.log(
+        "📂 Cloudinary not configured. Falling back to Local Storage...",
+      );
+      const filename = `${Date.now()}-${req.file.originalname.replace(/\s+/g, "_")}`;
+      const filePath = path.join(uploadDir, filename);
+
+      // Save buffer to file
+      fs.writeFileSync(filePath, req.file.buffer);
+
+      // Construct local URL
+      const protocol = req.protocol;
+      const host = req.get("host");
+      publicUrl = `${protocol}://${host}/uploads/${filename}`;
+      console.log("✅ File saved locally:", publicUrl);
+    }
 
     if (meeting_id) {
       await saveFileReference(meeting_id, publicUrl, req.file.originalname);
@@ -377,8 +397,12 @@ app.post("/upload", upload.single("file"), async (req, res) => {
       name: req.file.originalname,
     });
   } catch (error) {
-    console.error("❌ Error uploading to Cloudinary:", error);
-    res.status(500).json({ error: "No se pudo subir el archivo a la nube." });
+    console.error("❌ Error in upload endpoint:", error);
+    res.status(500).json({
+      error: "No se pudo procesar la subida del archivo.",
+      message: error.message,
+      stack: error.stack,
+    });
   }
 });
 
@@ -417,8 +441,8 @@ app.get("/", (req, res) => {
 app.post("/meetings/start", authenticateToken, async (req, res) => {
   try {
     // Debug logs: imprimir usuario y payload para diagnosticar 500 después de limpieza de BD
-    console.log('➡️ /meetings/start payload:', JSON.stringify(req.body));
-    console.log('➡️ /meetings/start req.user:', JSON.stringify(req.user));
+    console.log("➡️ /meetings/start payload:", JSON.stringify(req.body));
+    console.log("➡️ /meetings/start req.user:", JSON.stringify(req.user));
     // 1. Validar entrada
     const { error, value } = meetingSchema.validate(req.body);
     if (error) {
@@ -489,7 +513,7 @@ app.post("/meetings/start", authenticateToken, async (req, res) => {
     });
   } catch (err) {
     // Print stack for easier debugging
-    console.error('❌ Error en /meetings/start:', err.stack || err);
+    console.error("❌ Error en /meetings/start:", err.stack || err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -3046,19 +3070,19 @@ app.post(
 app.put("/api/users/settings", authenticateToken, async (req, res) => {
   try {
     const { notification_preferences } = req.body;
-    
+
     // Merge actual preferences with new ones
     const currentResult = await pool.query(
       "SELECT notification_preferences FROM users WHERE id = $1",
-      [req.user.userId]
+      [req.user.userId],
     );
-    
+
     const currentPrefs = currentResult.rows[0]?.notification_preferences || {};
     const newPrefs = { ...currentPrefs, ...notification_preferences };
 
     await pool.query(
       "UPDATE users SET notification_preferences = $1 WHERE id = $2",
-      [JSON.stringify(newPrefs), req.user.userId]
+      [JSON.stringify(newPrefs), req.user.userId],
     );
 
     res.json({ success: true, preferences: newPrefs });
@@ -3072,13 +3096,15 @@ app.get("/api/users/settings", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT notification_preferences FROM users WHERE id = $1",
-      [req.user.userId]
+      [req.user.userId],
     );
-    res.json({ 
-      success: true, 
-      preferences: result.rows[0]?.notification_preferences || { 
-        instant: true, scheduled: true, later: true 
-      }
+    res.json({
+      success: true,
+      preferences: result.rows[0]?.notification_preferences || {
+        instant: true,
+        scheduled: true,
+        later: true,
+      },
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -3091,14 +3117,14 @@ app.get("/api/users/settings", authenticateToken, async (req, res) => {
 setInterval(async () => {
   try {
     const now = new Date();
-    
+
     // 1. ⚡ REUNIONES INSTANTÁNEAS (Loop cada 2 min)
     // Buscamos reuniones activas e instantáneas que no hayan enviado recordatorio en > 2 min
     const instantMeetings = await pool.query(
       `SELECT * FROM meetings 
        WHERE is_active = true 
        AND meeting_type = 'instant'
-       AND (last_reminded_at IS NULL OR last_reminded_at < NOW() - INTERVAL '2 minutes')`
+       AND (last_reminded_at IS NULL OR last_reminded_at < NOW() - INTERVAL '2 minutes')`,
     );
 
     for (const meeting of instantMeetings.rows) {
@@ -3110,24 +3136,29 @@ setInterval(async () => {
          WHERE u.organization_id = $2
          AND p.id IS NULL
          AND (u.notification_preferences->>'instant')::boolean IS NOT false`,
-        [meeting.id, meeting.organization_id]
+        [meeting.id, meeting.organization_id],
       );
 
       if (targetUsers.rows.length > 0) {
         // Enviar notificaciones
-        const message = `🔴 Reunión en curso: ${meeting.title || 'Reunión Instantánea'}. ¡Únete ahora!`;
+        const message = `🔴 Reunión en curso: ${meeting.title || "Reunión Instantánea"}. ¡Únete ahora!`;
         const link = `/pre-lobby/${meeting.link}`;
 
         for (const user of targetUsers.rows) {
-           await pool.query(
+          await pool.query(
             "INSERT INTO notifications (user_id, type, message, link, meeting_id) VALUES ($1, 'meeting_invite', $2, $3, $4)",
-            [user.id, message, link, meeting.id]
-           );
+            [user.id, message, link, meeting.id],
+          );
         }
-        
+
         // Actualizar timestamp
-        await pool.query("UPDATE meetings SET last_reminded_at = NOW() WHERE id = $1", [meeting.id]);
-        console.log(`📡 Recordatorio enviado para reunión instantánea ${meeting.id} a ${targetUsers.rows.length} usuarios.`);
+        await pool.query(
+          "UPDATE meetings SET last_reminded_at = NOW() WHERE id = $1",
+          [meeting.id],
+        );
+        console.log(
+          `📡 Recordatorio enviado para reunión instantánea ${meeting.id} a ${targetUsers.rows.length} usuarios.`,
+        );
       }
     }
 
@@ -3137,7 +3168,7 @@ setInterval(async () => {
       `SELECT * FROM meetings 
        WHERE is_active = true 
        AND meeting_type IN ('scheduled', 'later')
-       AND scheduled_time > NOW()`
+       AND scheduled_time > NOW()`,
     );
 
     for (const meeting of scheduledMeetings.rows) {
@@ -3149,51 +3180,65 @@ setInterval(async () => {
       let msg = "";
 
       // A. Un día antes (Entre 23h y 25h antes)
-      if (diffMinutes > 1380 && diffMinutes < 1500 && !remindersSent.includes('1d')) {
-         typeToSend = '1d';
-         msg = `📅 Recordatorio: Mañana tienes la reunión "${meeting.title}" a las ${scheduledTime.toLocaleTimeString()}`;
+      if (
+        diffMinutes > 1380 &&
+        diffMinutes < 1500 &&
+        !remindersSent.includes("1d")
+      ) {
+        typeToSend = "1d";
+        msg = `📅 Recordatorio: Mañana tienes la reunión "${meeting.title}" a las ${scheduledTime.toLocaleTimeString()}`;
       }
 
       // B. Mismo día (Aprox 4 horas antes)
-      if (diffMinutes > 240 && diffMinutes < 300 && !remindersSent.includes('today')) {
-         typeToSend = 'today';
-         msg = `📅 Hoy tienes: "${meeting.title}" a las ${scheduledTime.toLocaleTimeString()}`;
+      if (
+        diffMinutes > 240 &&
+        diffMinutes < 300 &&
+        !remindersSent.includes("today")
+      ) {
+        typeToSend = "today";
+        msg = `📅 Hoy tienes: "${meeting.title}" a las ${scheduledTime.toLocaleTimeString()}`;
       }
-      
+
       // C. 10 Minutos antes (Entre 8 y 12 min)
-      if (diffMinutes > 8 && diffMinutes < 12 && !remindersSent.includes('10m')) {
-         typeToSend = '10m';
-         msg = `⏰ En 10 minutos comienza: "${meeting.title}". ¡Prepárate!`;
+      if (
+        diffMinutes > 8 &&
+        diffMinutes < 12 &&
+        !remindersSent.includes("10m")
+      ) {
+        typeToSend = "10m";
+        msg = `⏰ En 10 minutos comienza: "${meeting.title}". ¡Prepárate!`;
       }
 
       if (typeToSend) {
         // Buscar usuarios (filtro por preferencia)
-        const prefKey = meeting.meeting_type === 'later' ? 'later' : 'scheduled';
-        
+        const prefKey =
+          meeting.meeting_type === "later" ? "later" : "scheduled";
+
         const targetUsers = await pool.query(
           `SELECT id FROM users 
            WHERE organization_id = $1
            AND (notification_preferences->>$2)::boolean IS NOT false`,
-          [meeting.organization_id, prefKey]
+          [meeting.organization_id, prefKey],
         );
 
         for (const user of targetUsers.rows) {
-           await pool.query(
+          await pool.query(
             "INSERT INTO notifications (user_id, type, message, link, meeting_id) VALUES ($1, 'system_alert', $2, $3, $4)",
-            [user.id, msg, `/pre-lobby/${meeting.link}`, meeting.id]
-           );
+            [user.id, msg, `/pre-lobby/${meeting.link}`, meeting.id],
+          );
         }
 
         // Marcar como enviado
         remindersSent.push(typeToSend);
         await pool.query(
           "UPDATE meetings SET reminders_track = $1 WHERE id = $2",
-          [JSON.stringify(remindersSent), meeting.id]
+          [JSON.stringify(remindersSent), meeting.id],
         );
-        console.log(`📅 Recordatorio (${typeToSend}) enviado para reunión ${meeting.id}`);
+        console.log(
+          `📅 Recordatorio (${typeToSend}) enviado para reunión ${meeting.id}`,
+        );
       }
     }
-
   } catch (err) {
     console.error("Error en Notification Scheduler:", err.message);
   }
@@ -3344,19 +3389,7 @@ setInterval(async () => {
   }
 }, cleanupInterval);
 
-// --- ARRANQUE FINAL DEL SERVIDOR ---
-
-const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 [SUCCESS] SERVIDOR ESCUCHANDO EN PUERTO: ${PORT}`);
-  console.log(`🌍 [INFO] MODO: ${process.env.NODE_ENV || "production"}`);
-  console.log(
-    `🏁 [INFO] Registro completo y servidor listo para recibir tráfico.`,
-  );
-});
-
-server.on("error", (err) => {
-  console.error(`❌ ERROR AL ARRANCAR EL SERVIDOR: ${err.message}`);
-});
+// --- MANEJO DE SEÑALES Y ERRORES ---
 
 process.on("uncaughtException", (err) => {
   console.error("❌ EXCEPCIÓN NO CAPTURADA:", err);

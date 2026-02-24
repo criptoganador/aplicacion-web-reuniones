@@ -16,7 +16,7 @@ import { getApiUrl } from '../../context/AuthContext';
 function PreLobby() {
   const navigate = useNavigate();
   const { meetingId } = useParams();
-  const { user, accessToken, authFetch } = useAuth();
+  const { user, accessToken, authFetch, updateProfile } = useAuth();
   const videoRef = useRef(null);
   
   const [name, setName] = useState(user?.name || '');
@@ -77,6 +77,12 @@ function PreLobby() {
       const data = await res.json();
       if (data.secure_url) {
         setAvatarUrl(data.secure_url);
+        
+        // Persist to profile if logged in
+        if (user) {
+          await updateProfile({ name: user.name, avatarUrl: data.secure_url });
+        }
+        
         toast.success('¡Avatar actualizado!');
       } else {
         throw new Error('No se recibió la URL de la imagen');
@@ -323,9 +329,13 @@ function PreLobby() {
                 </>
               ) : (
                 <div className="video-off-placeholder">
-                  <div className="avatar-large">
-                    {name ? name.charAt(0).toUpperCase() : 'T'}
-                  </div>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" className="video-placeholder-avatar" />
+                  ) : (
+                    <div className="avatar-large">
+                      {name ? name.charAt(0).toUpperCase() : 'T'}
+                    </div>
+                  )}
                 </div>
               )}
               

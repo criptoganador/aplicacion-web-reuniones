@@ -211,28 +211,30 @@ export const initDB = async () => {
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='stripe_subscription_id') THEN
           ALTER TABLE organizations ADD COLUMN stripe_subscription_id TEXT;
         END IF;
-      // Asegurar subscription_status en organizations
+      END $$;
+
+      -- Asegurar subscription_status en organizations
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='organizations' AND column_name='subscription_status') THEN
           ALTER TABLE organizations ADD COLUMN subscription_status TEXT DEFAULT 'active';
         END IF;
       END $$;
 
-      // 🔔 Asegurar meeting_id en notifications (Smart Cleanup)
+      -- 🔔 Asegurar meeting_id en notifications (Smart Cleanup)
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='notifications' AND column_name='meeting_id') THEN
           ALTER TABLE notifications ADD COLUMN meeting_id INTEGER REFERENCES meetings(id) ON DELETE CASCADE;
         END IF;
       END $$;
 
-      // ⚙️ Preferencias de Notificación en Usuarios
+      -- ⚙️ Preferencias de Notificación en Usuarios
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='notification_preferences') THEN
           ALTER TABLE users ADD COLUMN notification_preferences JSONB DEFAULT '{"instant": true, "scheduled": true, "later": true}';
         END IF;
       END $$;
 
-      // ⏰ Tracking de Recordatorios en Reuniones
+      -- ⏰ Tracking de Recordatorios en Reuniones
       DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='meetings' AND column_name='last_reminded_at') THEN
           ALTER TABLE meetings ADD COLUMN last_reminded_at TIMESTAMP;

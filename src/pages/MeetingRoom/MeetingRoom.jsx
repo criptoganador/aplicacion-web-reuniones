@@ -25,6 +25,7 @@ setLogLevel('silent');
 import "@livekit/components-styles";
 import { toast } from 'sonner';
 import EmojiPicker from 'emoji-picker-react';
+import ScreenSourcePicker from '../../components/ScreenSourcePicker/ScreenSourcePicker';
 import './MeetingRoom.css';
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "wss://miradioip-yposn36u.livekit.cloud";
@@ -206,6 +207,8 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
   const [activeCaptions, setActiveCaptions] = useState({});
   const [isRecording, setIsRecording] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showScreenPicker, setShowScreenPicker] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   
   const recognitionRef = useRef(null);
   const recorderRef = useRef(null);
@@ -299,9 +302,47 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
     }
   };
 
-  const stopRecording = () => {
-    if (recorderRef.current && recorderRef.current.state === 'recording') {
-      recorderRef.current.stop();
+  const handleElectronScreenShare = async (sourceId) => {
+    try {
+      setShowScreenPicker(false);
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false, // Audio support in Electron screen capture is limited, kept false for simplicity
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: sourceId,
+          }
+        }
+      });
+
+      const track = stream.getVideoTracks()[0];
+      await room.localParticipant.publishTrack(track, { name: 'screen_share', source: Track.Source.ScreenShare });
+      
+      setIsScreenSharing(true);
+      toast.success("Pantalla compartida correctamente");
+
+      track.onended = () => {
+        setIsScreenSharing(false);
+        room.localParticipant.unpublishTrack(track);
+      };
+
+    } catch (err) {
+      console.error("Error starting Electron screen share:", err);
+      toast.error("No se pudo compartir la pantalla");
+    }
+  };
+
+  const stopElectronScreenShare = async () => {
+    try {
+      const trackPub = localParticipant.getTrackPublication(Track.Source.ScreenShare);
+      if (trackPub && trackPub.track) {
+        trackPub.track.stop();
+        await room.localParticipant.unpublishTrack(trackPub.track);
+      }
+      setIsScreenSharing(false);
+    } catch (err) {
+      console.error("Error stopping screen share:", err);
     }
   };
 
@@ -781,8 +822,24 @@ function MeetingContent({ meetingId, copyMeetingLink, onEndMeetingAction, isHost
         </div>
         <ControlBar 
           variation="minimal" 
-          controls={{ chat: false }} 
+          controls={{ chat: false, screenShare: !window.electron }} 
         />
+        {window.electron && (
+          <button 
+            className={`lk-button lk-button-group-item ${isScreenSharing ? 'active' : ''}`}
+            onClick={() => isScreenSharing ? stopElectronScreenShare() : setShowScreenPicker(true)}
+            title={isScreenSharing ? "Dejar de compartir" : "Compartir pantalla"}
+            style={{ borderRadius: '4px', marginLeft: '4px' }}
+          >
+            <ExternalLink size={20} />
+          </button>
+        )}
+        {showScreenPicker && (
+          <ScreenSourcePicker 
+            onClose={() => setShowScreenPicker(false)}
+            onSelect={handleElectronScreenShare}
+          />
+        )}
         <button 
           className="lk-button more-menu-btn"
           onClick={() => setShowMoreMenu(!showMoreMenu)}
