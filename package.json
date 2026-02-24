@@ -1,7 +1,7 @@
 {
   "name": "mi-proyecto-react",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "Video conferencing application for ASICME",
   "author": "ASICME",
@@ -35,7 +35,7 @@
   },
   "build": {
     "appId": "com.asicme.meet",
-    "productName": "ASICME Meet",
+    "productName": "ASICME Conferencia",
     "copyright": "Copyright © 2025 ASICME",
     "directories": {
       "output": "dist-electron"
@@ -55,14 +55,15 @@
         }
       ],
       "verifyUpdateCodeSignature": false,
-      "forceCodeSigning": false
+      "forceCodeSigning": false,
+      "icon": "electron/icon.png"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ASICME Meet",
+      "shortcutName": "ASICME Conferencia",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   },

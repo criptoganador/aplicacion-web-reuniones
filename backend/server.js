@@ -3417,5 +3417,19 @@ if (process.env.RENDER || (process.env.PORT && !process.env.IS_IMPORT)) {
   });
 }
 
+// --- AUTO-PING (KEEP-ALIVE) ---
+// Render apaga el servicio tras 15 min de inactividad. Esto lo mantiene despierto.
+const SELF_URL = process.env.SELF_PING_URL || process.env.RENDER_EXTERNAL_URL;
+if (SELF_URL) {
+  setInterval(async () => {
+    try {
+      console.log(`📡 Auto-ping: ${SELF_URL}`);
+      await fetch(SELF_URL);
+    } catch (err) {
+      console.error("❌ Error en Auto-ping:", err.message);
+    }
+  }, 12 * 60 * 1000); // 12 minutos (antes de los 15 min de Render)
+}
+
 export default app;
 export { app };

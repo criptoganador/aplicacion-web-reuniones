@@ -5,8 +5,8 @@ app.whenReady().then(() => {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
-    title: 'ASICME Meet',
-    icon: path.join(__dirname, '..', 'public', 'favicon.png'),
+    title: 'ASICME Conferencia',
+    icon: path.join(__dirname, 'icon.png'),
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
     titleBarOverlay: {
