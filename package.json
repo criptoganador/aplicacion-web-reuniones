@@ -56,7 +56,8 @@
         }
       ],
       "verifyUpdateCodeSignature": false,
-      "forceCodeSigning": false
+      "forceCodeSigning": false,
+      "icon": "electron/icon.png"
     },
     "nsis": {
       "oneClick": false,
