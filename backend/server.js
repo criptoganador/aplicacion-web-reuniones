@@ -37,7 +37,7 @@ cloudinary.config({
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  "https://app-frontend-z9ej.onrender.com",
+  "https://asicme-meet-frontend.onrender.com",
 ].filter(Boolean);
 
 if (process.env.FRONTEND_URL) {
@@ -297,7 +297,7 @@ app.use(
           "http://localhost:4000",
           "http://127.0.0.1:4000",
           "https://asicme-meet-backend.onrender.com",
-          "https://app-frontend-z9ej.onrender.com",
+          "https://asicme-meet-frontend.onrender.com",
           "wss://*.livekit.cloud",
           "https://*.livekit.cloud",
         ],

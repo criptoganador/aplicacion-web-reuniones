@@ -42,7 +42,7 @@ function createWindow() {
   const isDev = !app.isPackaged;
   
   // Cargamos la URL del servidor Render
-  mainWindow.loadURL('https://app-frontend-z9ej.onrender.com');
+  mainWindow.loadURL('https://asicme-meet-frontend.onrender.com');
 
   // Detectar errores de carga
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
