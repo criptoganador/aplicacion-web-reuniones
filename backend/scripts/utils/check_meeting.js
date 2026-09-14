@@ -32,7 +32,7 @@ async function checkStatus() {
 
     // 2. Check LiveKit
     const svc = new RoomServiceClient(
-      process.env.LIVEKIT_URL || "https://miradioip-yposn36u.livekit.cloud",
+      process.env.LIVEKIT_URL || "https://video-conferencia-pl01k130.livekit.cloud",
       process.env.LIVEKIT_API_KEY,
       process.env.LIVEKIT_API_SECRET,
     );

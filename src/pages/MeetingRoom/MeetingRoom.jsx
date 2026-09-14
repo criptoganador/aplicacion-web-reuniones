@@ -28,7 +28,7 @@ import EmojiPicker from 'emoji-picker-react';
 import ScreenSourcePicker from '../../components/ScreenSourcePicker/ScreenSourcePicker';
 import './MeetingRoom.css';
 
-const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "wss://miradioip-yposn36u.livekit.cloud";
+const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "wss://video-conferencia-pl01k130.livekit.cloud";
 import { getApiUrl } from '../../context/AuthContext';
 
 function MeetingRoom() {
