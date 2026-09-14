@@ -16,9 +16,13 @@
     "electron": "electron .",
     "electron:dev": "electron .",
     "electron:build": "npm run package",
-    "package": "npx cross-env ELECTRON_BUILD=true electron-builder"
+    "package": "npx cross-env ELECTRON_BUILD=true electron-builder",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:open": "npx cap open android",
+    "cap:run": "npx cap run android"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@eslint/js": "^9.39.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
@@ -76,6 +80,8 @@
     }
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@livekit/components-react": "^2.9.19",
     "@livekit/components-styles": "^1.2.0",
     "@react-oauth/google": "^0.13.4",
