@@ -3417,11 +3417,11 @@ app.use((err, req, res, next) => {
 });
 
 // --- INICIO ROBUSTO (Para Render/Despliegues) ---
-// Forzar el inicio del servidor si estamos en Render o si hay un puerto definido y no es una importación silenciosa
-const PORT_TO_LIVE = process.env.PORT || 10000;
+// Solo iniciar si este archivo se ejecuta directamente (ej. "node server.js") y no cuando es importado por index.js
+const isDirectRun = process.argv[1] && /server(_new)?\.(js|cjs|mjs)$/i.test(process.argv[1]);
 
-// Intentar escuchar siempre en Render para evitar "Port scan timeout"
-if (process.env.RENDER || (process.env.PORT && !process.env.IS_IMPORT)) {
+if (isDirectRun) {
+  const PORT_TO_LIVE = process.env.PORT || 10000;
   app.listen(PORT_TO_LIVE, "0.0.0.0", () => {
     console.log(`🚀 [BACKEND-OK] Servidor activo en puerto: ${PORT_TO_LIVE}`);
     console.log(`📡 Entorno: ${process.env.NODE_ENV || "production"}`);
